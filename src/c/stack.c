@@ -59,11 +59,12 @@ void* pop_ptr(stack_t stack) implement_pop(void*)
 void destroy_stack(stack_t stack) {
     stack->bsize = 0;
     stack->bcapacity = 0;
-    if (stack->bdata) mfree(stack->bdata);
+    if (stack->bdata) free(stack->bdata);
     stack->bdata = NULL;
 }
 
 void* stack_disown(stack_t stack) {
+    push_chr(stack, 0);
     void* to_ret = stack->bdata;
     to_ret = realloc(to_ret, stack->bsize);
     stack->bsize = 0;
