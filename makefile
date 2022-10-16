@@ -51,11 +51,19 @@ tests:
 	@rm -f $(TEST_DIR)/current_test
 	@for file in $(TEST_DIR)/* ; do \
 		make $${file} ; \
+		$(TEST_DIR)/current_test ; \
+		rm -f $(TEST_DIR)/current_test ; \
+	done
+
+tests-valgrind:
+	@rm -f $(TEST_DIR)/current_test
+	@for file in $(TEST_DIR)/* ; do \
+		make $${file} ; \
 		valgrind $(TEST_DIR)/current_test ; \
 		rm -f $(TEST_DIR)/current_test ; \
 	done
 
-.PHONY: clean debug tests
+.PHONY: clean debug tests tests-valgrind
 
 clean:
 	rm -f -r $(BUILD_DIR)/*

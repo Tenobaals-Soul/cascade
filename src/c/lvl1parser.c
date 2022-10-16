@@ -1,4 +1,4 @@
-#include <parser.h>
+#include <lvl1parser.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -8,9 +8,6 @@
 #include <stack.h>
 #include <stddef.h>
 #include <stdbool.h>
-
-#define make_conditional_exception(caused_by, parsed_symbols, format, ...)\
-(caused_by != NULL ? make_exception(caused_by, parsed_symbols, format##__VA_ARGS__) : NULL)
 
 #define update_exc(dest, val) do { if (dest) *dest = val; else free_exception(val); } while(0)
 
@@ -59,59 +56,75 @@ char parse_specific_char(reader_t* reader, Exception** excptr, char expect) {
     reader_t r = *reader;
     Exception* exc = NULL;
     char out = parse_char(&r, &exc);
-    update_exc(excptr, make_conditional_exception(exc, 0, "no digit was found"));
-    if (out == expect) {
-        *reader = r;
-        return out;
+    if (out == 0) {
+        update_exc(excptr, make_exception(exc, 0, "no digit was found"));
+        return 0;
     }
-    else {
+    if (out != expect) {
         update_exc(excptr, make_exception(NULL, 0, "expected '%c', not '%c'", expect, out));
         return 0;
+    }
+    else {
+        *reader = r;
+        update_exc(excptr, NULL);
+        return out;
     }
 }
 
 char parse_alpha(reader_t* reader, Exception** excptr) {
-    reader_t temp = *reader;
+    reader_t r = *reader;
     Exception* exc = NULL;
-    char out = parse_char(&temp, &exc);
-    update_exc(excptr, make_conditional_exception(exc, 0, "no digit was found"));
-    if (isalpha(out)) {
-        *reader = temp;
-        return out;
+    char out = parse_char(&r, &exc);
+    if (out == 0) {
+        update_exc(excptr, make_exception(exc, 0, "no alphabetic character was found"));
+        return 0;
+    }
+    if (!isalpha(out)) {
+        update_exc(excptr, make_exception(NULL, 0, "'%c' is not an alphabetical character", out));
+        return 0;
     }
     else {
-        update_exc(excptr, make_exception(NULL, 0, "'%c' is not a alphabetical character", out));
-        return 0;
+        *reader = r;
+        update_exc(excptr, NULL);
+        return out;
     }
 }
 
 char parse_punct(reader_t* reader, Exception** excptr) {
-    reader_t temp = *reader;
+    reader_t r = *reader;
     Exception* exc = NULL;
-    char out = parse_char(&temp, &exc);
-    update_exc(excptr, make_conditional_exception(exc, 0, "no digit was found"));
-    if (ispunct(out)) {
-        *reader = temp;
-        return out;
+    char out = parse_char(&r, &exc);
+    if (out == 0) {
+        update_exc(excptr, make_exception(exc, 0, "no punctuation character was found"));
+        return 0;
     }
-    else {
+    if (!ispunct(out)) {
         update_exc(excptr, make_exception(NULL, 0, "'%c' is not a punctuation character", out));
         return 0;
+    }
+    else {
+        *reader = r;
+        update_exc(excptr, NULL);
+        return out;
     }
 }
 
 char parse_digit(reader_t* reader, Exception** excptr) {
-    reader_t temp = *reader;
+    reader_t r = *reader;
     Exception* exc = NULL;
-    char out = parse_char(&temp, &exc);
-    update_exc(excptr, make_conditional_exception(exc, 0, "no digit was found"));
-    if (isdigit(out)) {
-        *reader = temp;
-        return out;
+    char out = parse_char(&r, &exc);
+    if (out == 0) {
+        update_exc(excptr, make_exception(exc, 0, "no digit was found"));
+        return 0;
     }
-    else {
+    if (!isdigit(out)) {
         update_exc(excptr, make_exception(NULL, 0, "'%c' is not a digit", out));
         return 0;
+    }
+    else {
+        *reader = r;
+        update_exc(excptr, NULL);
+        return out;
     }
 }
 
@@ -127,12 +140,13 @@ uintmax_t parse_integer(reader_t* reader, Exception** excptr) {
         update_exc(excptr, make_exception(NULL, 1, "number too big"));
         return 0;
     }
+    update_exc(excptr, NULL);
     return out;
 }
 
 double parse_floating(reader_t* reader, Exception** excptr) {
     char* errptr = reader->text + reader->cur;
-    double out = strtold(errptr, &errptr);
+    double out = strtod(errptr, &errptr);
     if (errptr == reader->text + reader->cur) {
         update_exc(excptr, make_exception(NULL, 0, "not a number"));
         return 0;
@@ -141,6 +155,7 @@ double parse_floating(reader_t* reader, Exception** excptr) {
         update_exc(excptr, make_exception(NULL, 1, "number too big"));
         return 0;
     }
+    update_exc(excptr, NULL);
     return out;
 }
 
@@ -164,11 +179,13 @@ char* parse_identifier(reader_t* reader, Exception** excptr) {
         }
         else break;
     }
+    update_exc(excptr, NULL);
     return stack_disown(stack);
 }
 
 char parse_operator_char(reader_t* reader, Exception** excptr) {
     char c;
+    update_exc(excptr, NULL);
     if ((c = parse_alpha(reader, NULL))) return c;
     if ((c = parse_punct(reader, NULL))) return c;
     if ((c = parse_specific_char(reader, NULL, '_'))) return c;
@@ -194,6 +211,7 @@ char* parse_operator(reader_t* reader, Exception** excptr) {
         }
         else break;
     }
+    update_exc(excptr, NULL);
     return stack_disown(stack);
 }
 
@@ -207,7 +225,29 @@ bool parse_keyword(reader_t* reader, Exception** excptr, const char* expect) {
         }
     }
     *reader = r;
+    update_exc(excptr, NULL);
     return true;
+}
+
+char parse_character(reader_t* reader, Exception** excptr) {
+    reader_t r = *reader;
+    Exception* exc = NULL;
+    char c;
+    if (parse_specific_char(&r, &exc, '\'') == 0) {
+        update_exc(excptr, make_exception(exc, 0, "expected a character"));
+        return 0;
+    }
+    if ((c = parse_char(&r, &exc)) == 0) { // fix later to support excape sequences
+        update_exc(excptr, make_exception(exc, 1, "expected a character"));
+        return 0;
+    }
+    if (parse_specific_char(&r, &exc, '\'') == 0) {
+        update_exc(excptr, make_exception(exc, 1, "expected a closing '"));
+        return 0;
+    }
+    update_exc(excptr, NULL);
+    *reader = r;
+    return c;
 }
 
 char* parse_string(reader_t* reader, Exception** excptr) {
@@ -230,6 +270,7 @@ char* parse_string(reader_t* reader, Exception** excptr) {
         else if (c == '\"') break;
         push_chr(stack, c);
     }
+    update_exc(excptr, NULL);
     *reader = r;
     return stack_disown(stack);
 }
