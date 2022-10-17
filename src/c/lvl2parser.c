@@ -7,9 +7,9 @@
 typedef struct Exception Exception;
 
 value_t* parse_integer_value(reader_t* reader, Exception** excptr) {
-    Exception* exc;
+    Exception* exc = NULL;
     uintmax_t out_val = parse_integer(reader, &exc);
-    value_integer_t* out_wrapper = malloc(sizeof(value_integer_t));
+    value_integer_t* out_wrapper = calloc(1, sizeof(value_integer_t));
     if (exc) {
         if (excptr) *excptr = exc;
         else free_exception(exc);
@@ -24,9 +24,9 @@ value_t* parse_integer_value(reader_t* reader, Exception** excptr) {
 }
 
 value_t* parse_floating_value(reader_t* reader, Exception** excptr) {
-    Exception* exc;
+    Exception* exc = NULL;
     double out_val = parse_floating(reader, &exc);
-    value_floating_t* out_wrapper = malloc(sizeof(*out_wrapper));
+    value_floating_t* out_wrapper = calloc(1, sizeof(*out_wrapper));
     if (exc) {
         if (excptr) *excptr = exc;
         else free_exception(exc);
@@ -41,9 +41,9 @@ value_t* parse_floating_value(reader_t* reader, Exception** excptr) {
 }
 
 value_t* parse_character_value(reader_t* reader, Exception** excptr) {
-    Exception* exc;
+    Exception* exc = NULL;
     char out_val = parse_character(reader, &exc);
-    value_char_t* out_wrapper = malloc(sizeof(*out_wrapper));
+    value_char_t* out_wrapper = calloc(1, sizeof(*out_wrapper));
     if (exc) {
         if (excptr) *excptr = exc;
         else free_exception(exc);
@@ -58,9 +58,9 @@ value_t* parse_character_value(reader_t* reader, Exception** excptr) {
 }
 
 value_t* parse_string_value(reader_t* reader, Exception** excptr) {
-    Exception* exc;
+    Exception* exc = NULL;
     char* out_val = parse_string(reader, &exc);
-    value_string_t* out_wrapper = malloc(sizeof(*out_wrapper));
+    value_string_t* out_wrapper = calloc(1, sizeof(*out_wrapper));
     if (exc) {
         if (excptr) *excptr = exc;
         else free_exception(exc);
@@ -109,9 +109,9 @@ static void free_item_stack(stack_t stack) {
     destroy_stack(stack);
 }
 
-value_scalar_initializer_t* parse_scalar_initializer(reader_t* reader, Exception** excptr) {
+value_t* parse_scalar_initializer(reader_t* reader, Exception** excptr) {
     reader_t r = *reader;
-    Exception* exc;
+    Exception* exc = NULL;
     if (!parse_specific_char(&r, &exc, '{')) {
         update_exc(excptr, make_exception(exc, 0, "expected a \"{\" for a scalar initilizer"));
         return NULL;
@@ -127,19 +127,19 @@ value_scalar_initializer_t* parse_scalar_initializer(reader_t* reader, Exception
             return NULL;
         }
     }
-    value_scalar_initializer_t* out = malloc(sizeof(*out));
+    value_scalar_initializer_t* out = calloc(1, sizeof(*out));
     *out = (value_scalar_initializer_t) {
         .type = VALUE_SCALAR_INITIALIZER,
         .items = stack->bsize / sizeof(value_scalar_initializer_t*),
         .value = stack_disown(stack)
     };
     *reader = r;
-    return out;
+    return (value_t*) out;
 }
 
-value_tuple_t* parse_tuple(reader_t* reader, Exception** excptr) {
+value_t* parse_tuple(reader_t* reader, Exception** excptr) {
     reader_t r = *reader;
-    Exception* exc;
+    Exception* exc = NULL;
     if (!parse_specific_char(&r, &exc, '{')) {
         update_exc(excptr, make_exception(exc, 0, "expected a \"(\" for a tuple"));
         return NULL;
@@ -155,18 +155,18 @@ value_tuple_t* parse_tuple(reader_t* reader, Exception** excptr) {
             return NULL;
         }
     }
-    value_tuple_t* out = malloc(sizeof(*out));
+    value_tuple_t* out = calloc(1, sizeof(*out));
     *out = (value_tuple_t) {
         .type = VALUE_TUPLE,
         .items = stack->bsize / sizeof(value_tuple_t*),
         .value = stack_disown(stack)
     };
     *reader = r;
-    return out;
+    return (value_t*) out;
 }
 
 value_t* parse_value(reader_t* reader, Exception** excptr) {
-    Exception* exc;
+    Exception* exc = NULL;
     value_t* out;
     if ((out = parse_character_value(reader, &exc))) return out;
     else update_exc(excptr, exc);
@@ -174,7 +174,7 @@ value_t* parse_value(reader_t* reader, Exception** excptr) {
     else update_exc(excptr, exc);
     if ((out = parse_floating_value(reader, &exc))) return out;
     else update_exc(excptr, exc);
-    if ((out = parse_string(reader, &exc))) return out;
+    if ((out = parse_string_value(reader, &exc))) return out;
     else update_exc(excptr, exc);
     if ((out = parse_scalar_initializer(reader, &exc))) return out;
     else update_exc(excptr, exc);

@@ -55,7 +55,8 @@ void _assert(bool condition, size_t line, const char* file, char* f1, char* f3, 
     void* evaly = y;\
     char* hex_str1 = _makehexstr(x, memb);\
     char* hex_str2 = _makehexstr(y, memb);\
-    _assert(evalx == evaly || (evalx && evaly && memcmp(evalx, evaly, memb) == 0), __LINE__, __FILE__,\
+    bool condition = evalx == evaly || (evalx && evaly && memcmp(evalx, evaly, memb) == 0);\
+    _assert(condition, __LINE__, __FILE__,\
         "%s", "%s", hex_str1, hex_str2\
     );\
     free(hex_str1);\

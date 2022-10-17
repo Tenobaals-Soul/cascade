@@ -5,16 +5,14 @@
 #include <lvl1parser.h>
 #undef TYPES_ONLY
 
-enum value_type {
+typedef enum value_type {
     VALUE_INTEGER,
     VALUE_FLOATING,
     VALUE_STRING,
     VALUE_CHAR,
     VALUE_SCALAR_INITIALIZER,
     VALUE_TUPLE
-};
-
-typedef enum value_type value_t;
+} value_t;
 
 typedef struct value_integer_s {
     value_t type;
@@ -48,8 +46,8 @@ typedef struct value_tuple_s {
     size_t items;
 } value_tuple_t;
 
-value_scalar_initializer_t* parse_scalar_initializer(reader_t* reader, struct Exception** excptr);
-value_tuple_t* parse_tuple(reader_t* reader, struct Exception** excptr);
+value_t* parse_scalar_initializer(reader_t* reader, struct Exception** excptr);
+value_t* parse_tuple(reader_t* reader, struct Exception** excptr);
 value_t* parse_value(reader_t* reader, struct Exception** excptr);
 
 #endif

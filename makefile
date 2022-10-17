@@ -44,13 +44,13 @@ $(BUILD_DIR)/%.c.o: $(SRC_DIR)/%.c
 $(TEST_CORE_DIR)/test_core.so: $(TEST_CORE_DIR)/test_core.c set_debug
 	$(CC) $(CFLAGS) -I$(TEST_CORE_DIR) -shared -fPIC $(TEST_CORE_DIR)/*.c -o $@
 
-$(TEST_DIR)/%: $(OBJS) $(TEST_CORE_DIR)/test_core.c set_debug
-	@echo $@.c $@
-	$(CC) $(CFLAGS) $(INC_FLAGS) $(OBJS) $(TEST_CORE_DIR)/test_core.c -I$(TEST_CORE_DIR) $@.c -o $@
+$(TEST_DIR)/%.elf: $(TEST_DIR)/%.c $(OBJS) $(TEST_CORE_DIR)/test_core.c set_debug
+	$(CC) $(CFLAGS) $(INC_FLAGS) $(OBJS) $(TEST_CORE_DIR)/test_core.c -I$(TEST_CORE_DIR) $< -o $@
 
 test:
-	@for file in $(TEST_DIR)/*.c ; do \
-		target="$${file%%.*}" ; \
+	for file in $(TEST_DIR)/*.c ; do \
+		target="$${file%%.*}".elf ; \
+		echo $${target} ; \
 		make $${target} ; \
 		./$${target} ; \
 		rm -f /$${target} ; \
@@ -58,9 +58,10 @@ test:
 
 test-valgrind:
 	@for file in $(TEST_DIR)/*.c ; do \
-		make $${file} ; \
-		valgrind $(TEST_DIR)/current_test ; \
-		rm -f $(TEST_DIR)/current_test ; \
+		target="$${file%%.*}".elf ; \
+		make $${target} ; \
+		valgrind ./$${target} ; \
+		rm -f /$${target} ; \
 	done
 
 .PHONY: clean debug test test-valgrind

@@ -4,7 +4,7 @@
             "type": "cppbuild",
             "label": "build with make",
             "command": "make",
-            "args": ["tests/${fileBasenameNoExtension}"],
+            "args": ["tests/${fileBasenameNoExtension}.elf"],
             "options": {
                 "cwd": "${workspaceFolder}"
             },

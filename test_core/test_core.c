@@ -30,7 +30,7 @@ void _assert(bool condition, size_t line, const char* file, char* f1, char* f3, 
         strcat(format, f2);
         strcat(format, f3);
         va_list l;
-        va_start(l, format);
+        va_start(l, f3);
         printf("    ");
         vprintf(format, l);
         printf("\n");

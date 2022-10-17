@@ -16,7 +16,7 @@ typedef struct Exception {
 } Exception;
 
 void update_exc(Exception** dest, Exception* val) {
-    if (dest) {
+    if (dest != NULL) {
         if (*dest == NULL) {
             *dest = val;
         }
@@ -50,11 +50,11 @@ Exception* make_exception(Exception* caused_by, size_t parsed_symbols, const cha
     va_start(l, format);
     vsprintf(buffer, format, l);
     va_end(l);
-    Exception* exp = malloc(sizeof(Exception));
-    exp->caused_by = caused_by;
-    exp->parsed_symbols = parsed_symbols;
-    exp->val = buffer;
-    return exp;
+    Exception* exc = malloc(sizeof(Exception));
+    exc->caused_by = caused_by;
+    exc->parsed_symbols = parsed_symbols;
+    exc->val = buffer;
+    return exc;
 }
 
 char parse_char(reader_t* reader, Exception** excptr) {
@@ -64,7 +64,7 @@ char parse_char(reader_t* reader, Exception** excptr) {
     return out;
 }
 
-char parse_specific_char(reader_t* reader, Exception** excptr, char expect) {
+char parse_specific_char(reader_t* reader, Exception** excptr, char excect) {
     reader_t r = *reader;
     Exception* exc = NULL;
     char out = parse_char(&r, &exc);
@@ -72,8 +72,8 @@ char parse_specific_char(reader_t* reader, Exception** excptr, char expect) {
         update_exc(excptr, make_exception(exc, 0, "no digit was found"));
         return 0;
     }
-    if (out != expect) {
-        update_exc(excptr, make_exception(NULL, 0, "expected '%c', not '%c'", expect, out));
+    if (out != excect) {
+        update_exc(excptr, make_exception(NULL, 0, "excected '%c', not '%c'", excect, out));
         return 0;
     }
     else {
@@ -175,11 +175,11 @@ char* parse_identifier(reader_t* reader, Exception** excptr) {
     stack_t stack;
     init_stack(stack);
     char c;
-    Exception* exp;
-    if ((c = parse_alpha(reader, &exp)) ||
-        (c = parse_specific_char(reader, &exp, '_')));
+    Exception* exc = NULL;
+    if ((c = parse_alpha(reader, &exc)) ||
+        (c = parse_specific_char(reader, &exc, '_')));
     else {
-        update_exc(excptr, make_exception(exp, 0, "not an identifier"));
+        update_exc(excptr, make_exception(exc, 0, "not an identifier"));
         return NULL;
     }
     push_chr(stack, c);
@@ -227,12 +227,12 @@ char* parse_operator(reader_t* reader, Exception** excptr) {
     return stack_disown(stack);
 }
 
-bool parse_keyword(reader_t* reader, Exception** excptr, const char* expect) {
+bool parse_keyword(reader_t* reader, Exception** excptr, const char* excect) {
     reader_t r;
-    for (size_t i = 0; expect[i]; i++) {
+    for (size_t i = 0; excect[i]; i++) {
         Exception* exc = NULL;
-        if (parse_specific_char(&r, &exc, expect[i]) == 0) {
-            update_exc(excptr, make_exception(exc, 0, "expected \"%s\"", expect));
+        if (parse_specific_char(&r, &exc, excect[i]) == 0) {
+            update_exc(excptr, make_exception(exc, 0, "excected \"%s\"", excect));
             return false;
         }
     }
@@ -246,15 +246,15 @@ char parse_character(reader_t* reader, Exception** excptr) {
     Exception* exc = NULL;
     char c;
     if (parse_specific_char(&r, &exc, '\'') == 0) {
-        update_exc(excptr, make_exception(exc, 0, "expected a character"));
+        update_exc(excptr, make_exception(exc, 0, "excected a character"));
         return 0;
     }
     if ((c = parse_char(&r, &exc)) == 0) { // fix later to support excape sequences
-        update_exc(excptr, make_exception(exc, 1, "expected a character"));
+        update_exc(excptr, make_exception(exc, 1, "excected a character"));
         return 0;
     }
     if (parse_specific_char(&r, &exc, '\'') == 0) {
-        update_exc(excptr, make_exception(exc, 1, "expected a closing '"));
+        update_exc(excptr, make_exception(exc, 1, "excected a closing '"));
         return 0;
     }
     update_exc(excptr, NULL);
@@ -266,7 +266,7 @@ char* parse_string(reader_t* reader, Exception** excptr) {
     reader_t r = *reader;
     Exception* exc = NULL;
     if (parse_specific_char(&r, &exc, '\"') == 0) {
-        update_exc(excptr, make_exception(exc, 0, "expected a string"));
+        update_exc(excptr, make_exception(exc, 0, "excected a string"));
         return NULL;
     }
     stack_t stack;

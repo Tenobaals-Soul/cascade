@@ -6,7 +6,6 @@
 #endif
 #include <test_core.h>
 #include <lvl1parser.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 reader_t* mr(char* t) {
