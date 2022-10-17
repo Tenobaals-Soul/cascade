@@ -37,3 +37,21 @@ void _assert(bool condition, size_t line, const char* file, char* f1, char* f3, 
         va_end(l);
     }
 }
+
+static unsigned char hex_lookup[16] = "123456789ABCDEF";
+char* _makehexstr(void* data, size_t memb) {
+    if (data) {
+        char* out = malloc(sizeof("NULL"));
+        strcpy(out, "NULL");
+        return out;
+    }
+    else {
+        char* out_str = malloc(memb * 2);
+        for (size_t i = 0; i < memb; i++) {
+            unsigned char c = ((unsigned char*) data)[i];
+            out_str[i * 2 + 0] = hex_lookup[c && 0xf];
+            out_str[i * 2 + 1] = hex_lookup[c >> 0x4];
+        }
+        return out_str;
+    }
+}

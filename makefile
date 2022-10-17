@@ -41,29 +41,29 @@ $(BUILD_DIR)/%.c.o: $(SRC_DIR)/%.c
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(OFLAGS) $(DEBUG_FLAGS) $(INC_FLAGS) -c $< -o $@
 
-$(TEST_CORE_DIR)/test_core.so: $(TEST_CORE_DIR)/test_core.c
-	$(CC) $(CFLAGS) -I$(TEST_CORE_DIR) -c $(TEST_CORE_DIR)/test_core.c -o $@
+$(TEST_CORE_DIR)/test_core.so: $(TEST_CORE_DIR)/test_core.c set_debug
+	$(CC) $(CFLAGS) -I$(TEST_CORE_DIR) -shared -fPIC $(TEST_CORE_DIR)/*.c -o $@
 
-tests/*: $(OBJS) $(TEST_CORE_DIR)/test_core.so set_debug
-	$(CC) $(CFLAGS) $(INC_FLAGS) $(OBJS) $(TEST_CORE_DIR)/test_core.so -I$(TEST_CORE_DIR) $@ -o $(TEST_DIR)/current_test
+$(TEST_DIR)/%: $(OBJS) $(TEST_CORE_DIR)/test_core.c set_debug
+	@echo $@.c $@
+	$(CC) $(CFLAGS) $(INC_FLAGS) $(OBJS) $(TEST_CORE_DIR)/test_core.c -I$(TEST_CORE_DIR) $@.c -o $@
 
-tests:
-	@rm -f $(TEST_DIR)/current_test
-	@for file in $(TEST_DIR)/* ; do \
-		make $${file} ; \
-		$(TEST_DIR)/current_test ; \
-		rm -f $(TEST_DIR)/current_test ; \
+test:
+	@for file in $(TEST_DIR)/*.c ; do \
+		target="$${file%%.*}" ; \
+		make $${target} ; \
+		./$${target} ; \
+		rm -f /$${target} ; \
 	done
 
-tests-valgrind:
-	@rm -f $(TEST_DIR)/current_test
-	@for file in $(TEST_DIR)/* ; do \
+test-valgrind:
+	@for file in $(TEST_DIR)/*.c ; do \
 		make $${file} ; \
 		valgrind $(TEST_DIR)/current_test ; \
 		rm -f $(TEST_DIR)/current_test ; \
 	done
 
-.PHONY: clean debug tests tests-valgrind
+.PHONY: clean debug test test-valgrind
 
 clean:
 	rm -f -r $(BUILD_DIR)/*

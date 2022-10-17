@@ -6,6 +6,7 @@
 
 void start();
 
+char* _makehexstr(void* data, size_t memb);
 void _assert(bool condition, size_t line, const char* file, char* f1, char* f3, ...);
 
 #define EVAL_TYPE_FORMATER(exp) (_Generic((exp), \
@@ -48,6 +49,18 @@ void _assert(bool condition, size_t line, const char* file, char* f1, char* f3, 
         EVAL_TYPE_FORMATER(evalx), "true", evalx\
     );\
 } while (0)
+
+#define assert_memeq(x, y, memb) do {\
+    void* evalx = x;\
+    void* evaly = y;\
+    char* hex_str1 = _makehexstr(x, memb);\
+    char* hex_str2 = _makehexstr(y, memb);\
+    _assert(evalx == evaly || (evalx && evaly && memcmp(evalx, evaly, memb) == 0), __LINE__, __FILE__,\
+        "%s", "%s", hex_str1, hex_str2\
+    );\
+    free(hex_str1);\
+    free(hex_str2);\
+} while(0)
 
 void end();
 

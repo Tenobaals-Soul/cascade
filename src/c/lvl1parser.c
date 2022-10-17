@@ -9,13 +9,25 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define update_exc(dest, val) do { if (dest) *dest = val; else free_exception(val); } while(0)
-
 typedef struct Exception {
     char* val;
     struct Exception* caused_by;
     size_t parsed_symbols;
 } Exception;
+
+void update_exc(Exception** dest, Exception* val) {
+    if (dest) {
+        if (*dest == NULL) {
+            *dest = val;
+        }
+        else if ((*dest)->parsed_symbols <= val->parsed_symbols) {
+            free_exception(*dest);
+            *dest = val;
+        }
+        else free_exception(val);
+    }
+    else free_exception(val);
+}
 
 void free_exception(Exception* exc) {
     Exception* next;
@@ -197,7 +209,7 @@ char* parse_operator(reader_t* reader, Exception** excptr) {
     stack_t stack;
     init_stack(stack);
     char c;
-    Exception* exc;
+    Exception* exc = NULL;
     if ((c = parse_operator_char(reader, &exc)));
     else {
         update_exc(excptr, make_exception(exc, 0, "not an identifier"));
@@ -261,7 +273,6 @@ char* parse_string(reader_t* reader, Exception** excptr) {
     init_stack(stack);
     for (;;) {
         char c;
-        Exception* exc;
         if ((c = parse_char(&r, &exc)) == 0) {
             update_exc(excptr, make_exception(exc, 1, "no closing \" was found"));
             destroy_stack(stack);

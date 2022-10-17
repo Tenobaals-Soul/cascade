@@ -1,4 +1,6 @@
+#if !defined (TEST)
 #define TEST
+#endif
 #if !defined(DEBUG)
 #define DEBUG
 #endif

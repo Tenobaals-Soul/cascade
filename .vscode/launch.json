@@ -8,7 +8,7 @@
             "name": "build with make and run",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/tests/current_test",
+            "program": "${workspaceRoot}/tests/${fileBasenameNoExtension}",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

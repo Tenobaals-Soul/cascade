@@ -18,6 +18,12 @@ char parse_specific_char(reader_t* reader, struct Exception** excptr, char expec
 char parse_alpha(reader_t* reader, struct Exception** excptr);
 char parse_punct(reader_t* reader, struct Exception** excptr);
 char parse_digit(reader_t* reader, struct Exception** excptr);
+void update_exc(struct Exception** dest, struct Exception* val);
+void free_exception(struct Exception* exc);
+#ifdef __GNUC__
+__attribute__((__format__(__printf__, 3, 4)))
+#endif
+struct Exception* make_exception(struct Exception* caused_by, size_t parsed_symbols, const char* format, ...);
 #endif
 void free_exception(struct Exception* exc);
 uintmax_t parse_integer(reader_t* reader, struct Exception** excptr);
