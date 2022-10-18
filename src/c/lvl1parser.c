@@ -140,35 +140,35 @@ char parse_digit(reader_t* reader, Exception** excptr) {
     }
 }
 
-uintmax_t parse_integer(reader_t* reader, Exception** excptr) {
+struct number parse_number(reader_t* reader, struct Exception** excptr) {
     char* startptr = reader->text + reader->cur;
-    char* errptr;
-    uintmax_t out = strtoumax(startptr, &errptr, 0);
+    char* errptri, errptrf;
+    uintmax_t iout = strtoumax(startptr, &errptri, 0);
+    int ierr = errno;
+    double fout = strtod(startptr, &errptrf);
+    int ferr = errno;
+    char* errptr, err;
+    struct number to_ret;
+    if (errptri >= errptrf) {
+        errptr = errptri;
+        err = ierr;
+        to_ret = (struct number) { INTEGER, iout };
+    }
+    else {
+        errptr = errptrf;
+        err = ferr;
+        to_ret = (struct number) { FLOATING, fout };
+    }
     if (errptr == reader->text + reader->cur) {
         update_exc(excptr, make_exception(NULL, 0, "not a number"));
-        return 0;
+        return (struct number) {0};
     }
-    if (errno == ERANGE) {
+    if (err == ERANGE) {
         update_exc(excptr, make_exception(NULL, 1, "number too big"));
-        return 0;
+        return (struct number) {0};
     }
     update_exc(excptr, NULL);
-    return out;
-}
-
-double parse_floating(reader_t* reader, Exception** excptr) {
-    char* errptr = reader->text + reader->cur;
-    double out = strtod(errptr, &errptr);
-    if (errptr == reader->text + reader->cur) {
-        update_exc(excptr, make_exception(NULL, 0, "not a number"));
-        return 0;
-    }
-    if (errno == ERANGE) {
-        update_exc(excptr, make_exception(NULL, 1, "number too big"));
-        return 0;
-    }
-    update_exc(excptr, NULL);
-    return out;
+    return to_ret;
 }
 
 char* parse_identifier(reader_t* reader, Exception** excptr) {

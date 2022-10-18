@@ -11,6 +11,16 @@ typedef struct reader_t {
 
 struct Exception;
 
+struct number {
+    enum type {
+        NONE, INTEGER, FLOATING
+    } type;
+    union {
+        uintmax_t i;
+        double f;
+    };
+};
+
 #if !defined(TYPES_ONLY)
 #if defined(TEST) || defined(REQUIRE_LVL0_PARSER)
 char parse_char(reader_t* reader, struct Exception** excptr);
@@ -26,8 +36,7 @@ __attribute__((__format__(__printf__, 3, 4)))
 struct Exception* make_exception(struct Exception* caused_by, size_t parsed_symbols, const char* format, ...);
 #endif
 void free_exception(struct Exception* exc);
-uintmax_t parse_integer(reader_t* reader, struct Exception** excptr);
-double parse_floating(reader_t* reader, struct Exception** excptr);
+struct number parse_number(reader_t* reader, struct Exception** excptr);
 char parse_character(reader_t* reader, struct Exception** excptr);
 char* parse_identifier(reader_t* reader, struct Exception** excptr);
 char parse_operator_char(reader_t* reader, struct Exception** excptr);

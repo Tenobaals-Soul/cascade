@@ -6,36 +6,25 @@
 
 typedef struct Exception Exception;
 
-value_t* parse_integer_value(reader_t* reader, Exception** excptr) {
-    Exception* exc = NULL;
-    uintmax_t out_val = parse_integer(reader, &exc);
-    value_integer_t* out_wrapper = calloc(1, sizeof(value_integer_t));
-    if (exc) {
-        if (excptr) *excptr = exc;
-        else free_exception(exc);
+value_t* parse_number_value(reader_t* reader, Exception** excptr) {
+    Exception* exc;
+    struct number out_val = parse_number(reader, &exc);
+    if (out_val.type == NONE) {
+        update_exc(excptr, exc);
         return NULL;
     }
-    else {
-        *excptr = NULL;
+    if (out_val.type == INTEGER) {
+        value_integer_t* out_wrapper = malloc(sizeof(value_integer_t));
+        update_exc(excptr, NULL);
         out_wrapper->type = VALUE_INTEGER;
-        out_wrapper->value = out_val;
+        out_wrapper->value = out_val.i;
         return &out_wrapper->type;
     }
-}
-
-value_t* parse_floating_value(reader_t* reader, Exception** excptr) {
-    Exception* exc = NULL;
-    double out_val = parse_floating(reader, &exc);
-    value_floating_t* out_wrapper = calloc(1, sizeof(*out_wrapper));
-    if (exc) {
-        if (excptr) *excptr = exc;
-        else free_exception(exc);
-        return NULL;
-    }
     else {
-        *excptr = NULL;
+        value_floating_t* out_wrapper = malloc(sizeof(value_floating_t));
+        update_exc(excptr, NULL);
         out_wrapper->type = VALUE_FLOATING;
-        out_wrapper->value = out_val;
+        out_wrapper->value = out_val.f;
         return &out_wrapper->type;
     }
 }
@@ -170,9 +159,7 @@ value_t* parse_value(reader_t* reader, Exception** excptr) {
     value_t* out;
     if ((out = parse_character_value(reader, &exc))) return out;
     else update_exc(excptr, exc);
-    if ((out = parse_integer_value(reader, &exc))) return out;
-    else update_exc(excptr, exc);
-    if ((out = parse_floating_value(reader, &exc))) return out;
+    if ((out = parse_number_value(reader, &exc))) return out;
     else update_exc(excptr, exc);
     if ((out = parse_string_value(reader, &exc))) return out;
     else update_exc(excptr, exc);
