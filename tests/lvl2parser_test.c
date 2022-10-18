@@ -15,20 +15,18 @@ reader_t* mr(char* t) {
 }
 
 int main() {
-    value_char_t vc = { 0 };
-    vc.type = VALUE_CHAR;
-    vc.value = 'a';
-    assert_memeq(parse_value(mr("'a'e"), NULL), &vc, sizeof(vc));
-    value_integer_t vi = { 0 };
-    vi.type = VALUE_INTEGER;
-    vi.value = 420;
-    assert_memeq(parse_value(mr("420e"), NULL), &vi, sizeof(vi));
-    value_floating_t vf = { 0 };
-    vf.type = VALUE_FLOATING;
-    vf.value = 12.5;
-    value_floating_t* v = parse_value(mr("12.5"), NULL);
-    assert_memeq(v, &vf, sizeof(vf));
-    value_string_t* parsed_string = (value_string_t*) parse_value(mr("\"hello\" + "), NULL);
-    assert_equal((int) parsed_string->type, VALUE_STRING);
-    assert_str_equal(parsed_string->value, "hello");
+    start();
+    value_char_t* vc = (void*) parse_value(mr("'a'e"), NULL);
+    assert_equal((int) vc->type, VALUE_CHAR);
+    assert_equal(vc->value, 'a');
+    value_integer_t* vi = (void*) parse_value(mr("420e"), NULL);
+    assert_equal((int) vi->type, VALUE_INTEGER);
+    assert_equal(vi->value, (uintmax_t) 420);
+    value_floating_t* vf = (void*) parse_value(mr("12.5"), NULL);
+    assert_equal((int) vf->type, VALUE_FLOATING);
+    assert_equal(vf->value, 12.5);
+    value_string_t* vs = (void*) parse_value(mr("\"hello\" + "), NULL);
+    assert_equal((int) vs->type, VALUE_STRING);
+    assert_str_equal(vs->value, "hello");
+    end();
 }

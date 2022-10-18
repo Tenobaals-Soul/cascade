@@ -19,12 +19,19 @@ void update_exc(Exception** dest, Exception* val) {
     if (dest != NULL) {
         if (*dest == NULL) {
             *dest = val;
+            return;
         }
-        else if ((*dest)->parsed_symbols <= val->parsed_symbols) {
+        if (val == NULL) {
+            free_exception(*dest);
+            *dest = NULL;
+            return;
+        }
+        if ((*dest)->parsed_symbols <= val->parsed_symbols) {
             free_exception(*dest);
             *dest = val;
+            return;
         }
-        else free_exception(val);
+        free_exception(val);
     }
     else free_exception(val);
 }
@@ -33,6 +40,7 @@ void free_exception(Exception* exc) {
     Exception* next;
     while (exc) {
         next = exc->caused_by;
+        free(exc->val);
         free(exc);
         exc = next;
     }
@@ -64,16 +72,18 @@ char parse_char(reader_t* reader, Exception** excptr) {
     return out;
 }
 
-char parse_specific_char(reader_t* reader, Exception** excptr, char excect) {
+char parse_specific_char(reader_t* reader, Exception** excptr, char expect) {
     reader_t r = *reader;
     Exception* exc = NULL;
     char out = parse_char(&r, &exc);
     if (out == 0) {
-        update_exc(excptr, make_exception(exc, 0, "no digit was found"));
+        exc = make_exception(exc, 0, "no digit was found");
+        update_exc(excptr, exc);
         return 0;
     }
-    if (out != excect) {
-        update_exc(excptr, make_exception(NULL, 0, "excected '%c', not '%c'", excect, out));
+    if (out != expect) {
+        exc = make_exception(NULL, 0, "excected '%c', not '%c'", expect, out);
+        update_exc(excptr, exc);
         return 0;
     }
     else {
@@ -142,7 +152,8 @@ char parse_digit(reader_t* reader, Exception** excptr) {
 
 struct number parse_number(reader_t* reader, struct Exception** excptr) {
     char* startptr = reader->text + reader->cur;
-    char* errptri, errptrf;
+    char* errptri;
+    char* errptrf;
     uintmax_t iout = strtoumax(startptr, &errptri, 0);
     int ierr = errno;
     double fout = strtod(startptr, &errptrf);
@@ -152,12 +163,14 @@ struct number parse_number(reader_t* reader, struct Exception** excptr) {
     if (errptri >= errptrf) {
         errptr = errptri;
         err = ierr;
-        to_ret = (struct number) { INTEGER, iout };
+        to_ret.type = NINTEGER;
+        to_ret.i = iout;
     }
     else {
         errptr = errptrf;
         err = ferr;
-        to_ret = (struct number) { FLOATING, fout };
+        to_ret.type = NFLOATING;
+        to_ret.f = fout;
     }
     if (errptr == reader->text + reader->cur) {
         update_exc(excptr, make_exception(NULL, 0, "not a number"));
@@ -227,12 +240,12 @@ char* parse_operator(reader_t* reader, Exception** excptr) {
     return stack_disown(stack);
 }
 
-bool parse_keyword(reader_t* reader, Exception** excptr, const char* excect) {
+bool parse_keyword(reader_t* reader, Exception** excptr, const char* expect) {
     reader_t r;
-    for (size_t i = 0; excect[i]; i++) {
+    for (size_t i = 0; expect[i]; i++) {
         Exception* exc = NULL;
-        if (parse_specific_char(&r, &exc, excect[i]) == 0) {
-            update_exc(excptr, make_exception(exc, 0, "excected \"%s\"", excect));
+        if (parse_specific_char(&r, &exc, expect[i]) == 0) {
+            update_exc(excptr, make_exception(exc, 0, "excected \"%s\"", expect));
             return false;
         }
     }
@@ -246,15 +259,15 @@ char parse_character(reader_t* reader, Exception** excptr) {
     Exception* exc = NULL;
     char c;
     if (parse_specific_char(&r, &exc, '\'') == 0) {
-        update_exc(excptr, make_exception(exc, 0, "excected a character"));
+        update_exc(excptr, make_exception(exc, 0, "expected a character"));
         return 0;
     }
     if ((c = parse_char(&r, &exc)) == 0) { // fix later to support excape sequences
-        update_exc(excptr, make_exception(exc, 1, "excected a character"));
+        update_exc(excptr, make_exception(exc, 1, "expected a character"));
         return 0;
     }
     if (parse_specific_char(&r, &exc, '\'') == 0) {
-        update_exc(excptr, make_exception(exc, 1, "excected a closing '"));
+        update_exc(excptr, make_exception(exc, 1, "expected a closing '"));
         return 0;
     }
     update_exc(excptr, NULL);

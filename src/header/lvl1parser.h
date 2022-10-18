@@ -13,7 +13,7 @@ struct Exception;
 
 struct number {
     enum type {
-        NONE, INTEGER, FLOATING
+        NNONE, NINTEGER, NFLOATING
     } type;
     union {
         uintmax_t i;

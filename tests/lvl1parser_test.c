@@ -25,8 +25,8 @@ int main() {
     assert_equal(parse_digit(mr("123"), NULL), '1');
     assert_equal(parse_punct(mr("hello world"), NULL), 0);
     assert_equal(parse_punct(mr("/"), NULL), '/');
-    assert_equal(parse_floating(mr("0.5"), NULL), 0.5);
-    assert_equal(parse_floating(mr("r0.5"), NULL), 0);
+    assert_equal(parse_number(mr("0.5"), NULL).f, 0.5);
+    assert_equal((int) parse_number(mr("r0.5"), NULL).type, NNONE);
     assert_equal(parse_character(mr("'a'"), NULL), 'a');
     assert_equal(parse_character(mr("a'"), NULL), 0);
     assert_str_equal(parse_identifier(mr("hello world"), NULL), "hello");

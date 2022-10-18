@@ -44,11 +44,11 @@ $(BUILD_DIR)/%.c.o: $(SRC_DIR)/%.c
 $(TEST_CORE_DIR)/test_core.so: $(TEST_CORE_DIR)/test_core.c set_debug
 	$(CC) $(CFLAGS) -I$(TEST_CORE_DIR) -shared -fPIC $(TEST_CORE_DIR)/*.c -o $@
 
-$(TEST_DIR)/%.elf: $(TEST_DIR)/%.c $(OBJS) $(TEST_CORE_DIR)/test_core.c set_debug
+$(TEST_DIR)/%.elf: $(TEST_DIR)/%.c $(OBJS) $(TEST_CORE_DIR)/test_core.c set_debug set_no_opt
 	$(CC) $(CFLAGS) $(INC_FLAGS) $(OBJS) $(TEST_CORE_DIR)/test_core.c -I$(TEST_CORE_DIR) $< -o $@
 
 test:
-	for file in $(TEST_DIR)/*.c ; do \
+	@for file in $(TEST_DIR)/*.c ; do \
 		target="$${file%%.*}".elf ; \
 		echo $${target} ; \
 		make $${target} ; \
@@ -69,3 +69,4 @@ test-valgrind:
 clean:
 	rm -f -r $(BUILD_DIR)/*
 	rm -f $(EXEC)
+	rm -f tests/*.elf

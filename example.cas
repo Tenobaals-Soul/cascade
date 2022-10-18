@@ -1,0 +1,9 @@
+http_response index(http_request request) = {200, "hello world"};
+http_response login(http_request request) = read_all("login.html");
+
+endpoint[] endpoints = {
+    {"/", index, GET},
+    {"/login", login, GET|POST}
+};
+
+start_listening(endpoints, ipaddr("127.0.0.1"), 5000);
