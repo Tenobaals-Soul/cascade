@@ -13,7 +13,16 @@ typedef struct Exception {
     char* val;
     struct Exception* caused_by;
     size_t parsed_symbols;
+    size_t text_pos;
 } Exception;
+
+void print_exception(Exception* exc) {
+    printf("%s\n", exc->val);
+    while (exc->caused_by) {
+        exc = exc->caused_by;
+        printf("    %s\n", exc->val);
+    }
+}
 
 void update_exc(Exception** dest, Exception* val) {
     if (dest != NULL) {
@@ -47,9 +56,9 @@ void free_exception(Exception* exc) {
 }
 
 #ifdef __GNUC__
-__attribute__((__format__(__printf__, 3, 4)))
+__attribute__((__format__(__printf__, 4, 5)))
 #endif
-Exception* make_exception(Exception* caused_by, size_t parsed_symbols, const char* format, ...) {
+Exception* make_exception(Exception* caused_by, size_t parsed_symbols, reader_t r, const char* format, ...) {
     va_list l;
     va_start(l, format);
     int len = vsnprintf(NULL, 0, format, l);
@@ -61,13 +70,14 @@ Exception* make_exception(Exception* caused_by, size_t parsed_symbols, const cha
     Exception* exc = malloc(sizeof(Exception));
     exc->caused_by = caused_by;
     exc->parsed_symbols = parsed_symbols;
+    exc->text_pos = r.cur;
     exc->val = buffer;
     return exc;
 }
 
 char parse_char(reader_t* reader, Exception** excptr) {
     char out = reader->text[reader->cur];
-    if (out == 0) update_exc(excptr, make_exception(NULL, 0, "EOF"));
+    if (out == 0) update_exc(excptr, make_exception(NULL, 0, *reader, "EOF"));
     else reader->cur++;
     return out;
 }
@@ -77,12 +87,12 @@ char parse_specific_char(reader_t* reader, Exception** excptr, char expect) {
     Exception* exc = NULL;
     char out = parse_char(&r, &exc);
     if (out == 0) {
-        exc = make_exception(exc, 0, "no digit was found");
+        exc = make_exception(exc, 0, r, "no digit was found");
         update_exc(excptr, exc);
         return 0;
     }
     if (out != expect) {
-        exc = make_exception(NULL, 0, "excected '%c', not '%c'", expect, out);
+        exc = make_exception(NULL, 0, r, "excected '%c', not '%c'", expect, out);
         update_exc(excptr, exc);
         return 0;
     }
@@ -98,11 +108,11 @@ char parse_alpha(reader_t* reader, Exception** excptr) {
     Exception* exc = NULL;
     char out = parse_char(&r, &exc);
     if (out == 0) {
-        update_exc(excptr, make_exception(exc, 0, "no alphabetic character was found"));
+        update_exc(excptr, make_exception(exc, 0, r, "no alphabetic character was found"));
         return 0;
     }
     if (!isalpha(out)) {
-        update_exc(excptr, make_exception(NULL, 0, "'%c' is not an alphabetical character", out));
+        update_exc(excptr, make_exception(NULL, 0, r, "'%c' is not an alphabetical character", out));
         return 0;
     }
     else {
@@ -117,11 +127,11 @@ char parse_punct(reader_t* reader, Exception** excptr) {
     Exception* exc = NULL;
     char out = parse_char(&r, &exc);
     if (out == 0) {
-        update_exc(excptr, make_exception(exc, 0, "no punctuation character was found"));
+        update_exc(excptr, make_exception(exc, 0, r, "no punctuation character was found"));
         return 0;
     }
     if (!ispunct(out)) {
-        update_exc(excptr, make_exception(NULL, 0, "'%c' is not a punctuation character", out));
+        update_exc(excptr, make_exception(NULL, 0, r, "'%c' is not a punctuation character", out));
         return 0;
     }
     else {
@@ -136,11 +146,11 @@ char parse_digit(reader_t* reader, Exception** excptr) {
     Exception* exc = NULL;
     char out = parse_char(&r, &exc);
     if (out == 0) {
-        update_exc(excptr, make_exception(exc, 0, "no digit was found"));
+        update_exc(excptr, make_exception(exc, 0, r, "no digit was found"));
         return 0;
     }
     if (!isdigit(out)) {
-        update_exc(excptr, make_exception(NULL, 0, "'%c' is not a digit", out));
+        update_exc(excptr, make_exception(NULL, 0, r, "'%c' is not a digit", out));
         return 0;
     }
     else {
@@ -173,11 +183,11 @@ struct number parse_number(reader_t* reader, struct Exception** excptr) {
         to_ret.f = fout;
     }
     if (errptr == reader->text + reader->cur) {
-        update_exc(excptr, make_exception(NULL, 0, "not a number"));
+        update_exc(excptr, make_exception(NULL, 0, *reader, "not a number"));
         return (struct number) {0};
     }
     if (err == ERANGE) {
-        update_exc(excptr, make_exception(NULL, 1, "number too big"));
+        update_exc(excptr, make_exception(NULL, 1, *reader, "number too big"));
         return (struct number) {0};
     }
     update_exc(excptr, NULL);
@@ -192,7 +202,7 @@ char* parse_identifier(reader_t* reader, Exception** excptr) {
     if ((c = parse_alpha(reader, &exc)) ||
         (c = parse_specific_char(reader, &exc, '_')));
     else {
-        update_exc(excptr, make_exception(exc, 0, "not an identifier"));
+        update_exc(excptr, make_exception(exc, 0, *reader, "not an identifier"));
         return NULL;
     }
     push_chr(stack, c);
@@ -214,7 +224,7 @@ char parse_operator_char(reader_t* reader, Exception** excptr) {
     if ((c = parse_alpha(reader, NULL))) return c;
     if ((c = parse_punct(reader, NULL))) return c;
     if ((c = parse_specific_char(reader, NULL, '_'))) return c;
-    update_exc(excptr, make_exception(NULL, 0, "'%c' is not a valid character for an operator", c));
+    update_exc(excptr, make_exception(NULL, 0, *reader, "'%c' is not a valid character for an operator", c));
     return 0;
 }
 
@@ -225,7 +235,7 @@ char* parse_operator(reader_t* reader, Exception** excptr) {
     Exception* exc = NULL;
     if ((c = parse_operator_char(reader, &exc)));
     else {
-        update_exc(excptr, make_exception(exc, 0, "not an identifier"));
+        update_exc(excptr, make_exception(exc, 0, *reader, "not an identifier"));
         return NULL;
     }
     push_chr(stack, c);
@@ -245,7 +255,7 @@ bool parse_keyword(reader_t* reader, Exception** excptr, const char* expect) {
     for (size_t i = 0; expect[i]; i++) {
         Exception* exc = NULL;
         if (parse_specific_char(&r, &exc, expect[i]) == 0) {
-            update_exc(excptr, make_exception(exc, 0, "excected \"%s\"", expect));
+            update_exc(excptr, make_exception(exc, 0, r, "excected \"%s\"", expect));
             return false;
         }
     }
@@ -259,15 +269,15 @@ char parse_character(reader_t* reader, Exception** excptr) {
     Exception* exc = NULL;
     char c;
     if (parse_specific_char(&r, &exc, '\'') == 0) {
-        update_exc(excptr, make_exception(exc, 0, "expected a character"));
+        update_exc(excptr, make_exception(exc, 0, r, "expected a character"));
         return 0;
     }
     if ((c = parse_char(&r, &exc)) == 0) { // fix later to support excape sequences
-        update_exc(excptr, make_exception(exc, 1, "expected a character"));
+        update_exc(excptr, make_exception(exc, 1, r, "expected a character"));
         return 0;
     }
     if (parse_specific_char(&r, &exc, '\'') == 0) {
-        update_exc(excptr, make_exception(exc, 1, "expected a closing '"));
+        update_exc(excptr, make_exception(exc, 1, r, "expected a closing '"));
         return 0;
     }
     update_exc(excptr, NULL);
@@ -279,15 +289,15 @@ char* parse_string(reader_t* reader, Exception** excptr) {
     reader_t r = *reader;
     Exception* exc = NULL;
     if (parse_specific_char(&r, &exc, '\"') == 0) {
-        update_exc(excptr, make_exception(exc, 0, "excected a string"));
+        update_exc(excptr, make_exception(exc, 0, r, "excected a string"));
         return NULL;
     }
     stack_t stack;
     init_stack(stack);
     for (;;) {
         char c;
-        if ((c = parse_char(&r, &exc)) == 0) {
-            update_exc(excptr, make_exception(exc, 1, "no closing \" was found"));
+        if ((c = parse_char(&r, &exc)) == 0 || c == '\n') {
+            update_exc(excptr, make_exception(exc, 1, r, "no closing \" was found"));
             destroy_stack(stack);
             return NULL;
         }

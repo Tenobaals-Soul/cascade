@@ -10,7 +10,7 @@
 
 reader_t* mr(char* t) {
     reader_t* r = malloc(sizeof(reader_t));
-    r[0] = (reader_t) {t, 0};
+    r[0] = (reader_t) {t, 0, 0, 0};
     return r;
 }
 

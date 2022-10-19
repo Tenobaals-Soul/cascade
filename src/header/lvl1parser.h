@@ -7,6 +7,8 @@
 typedef struct reader_t {
     char* text;
     size_t cur;
+    size_t line;
+    size_t loff;
 } reader_t;
 
 struct Exception;

@@ -189,3 +189,25 @@ value_t* parse_value(reader_t* reader, Exception** excptr) {
     else free_exception(temp_exc);
     return NULL;
 }
+
+void skip_whitespace(reader_t* reader) {
+    reader_t r = *reader;
+    for (;;) {
+        switch (parse_char(&r, NULL)) {
+        case ' ':
+            break;
+        case '\n':
+            r.loff = r.cur;
+            r.line++;
+            break;
+        case 0:
+        default:
+            return;
+        }
+    }
+}
+
+value_t* parse_expression(reader_t* reader, Exception* excptr) {
+    stack_t vastack;
+    stack_t opstack;
+}
