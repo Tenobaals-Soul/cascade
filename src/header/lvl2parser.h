@@ -1,9 +1,7 @@
 #ifndef INCLUDE_LVL2PARSER_H
 #define INCLUDE_LVL2PARSER_H
 #include <inttypes.h>
-#define TYPES_ONLY
 #include <lvl1parser.h>
-#undef TYPES_ONLY
 
 typedef enum value_type {
     VALUE_INTEGER,
@@ -36,13 +34,13 @@ typedef struct value_char_s {
 
 typedef struct value_scalar_initializer_s {
     value_t type;
-    value_t* value;
+    value_t** value;
     size_t items;
 } value_scalar_initializer_t;
 
 typedef struct value_tuple_s {
     value_t type;
-    value_t* value;
+    value_t** value;
     size_t items;
 } value_tuple_t;
 

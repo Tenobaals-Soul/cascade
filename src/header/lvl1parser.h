@@ -33,11 +33,12 @@ char parse_digit(reader_t* reader, struct Exception** excptr);
 void update_exc(struct Exception** dest, struct Exception* val);
 void free_exception(struct Exception* exc);
 #ifdef __GNUC__
-__attribute__((__format__(__printf__, 3, 4)))
+__attribute__((__format__(__printf__, 4, 5)))
 #endif
-struct Exception* make_exception(struct Exception* caused_by, size_t parsed_symbols, const char* format, ...);
+struct Exception* make_exception(struct Exception* caused_by, size_t parsed_symbols, reader_t r, const char* format, ...);
 #endif
 void free_exception(struct Exception* exc);
+void print_exception(struct Exception* exc);
 struct number parse_number(reader_t* reader, struct Exception** excptr);
 char parse_character(reader_t* reader, struct Exception** excptr);
 char* parse_identifier(reader_t* reader, struct Exception** excptr);

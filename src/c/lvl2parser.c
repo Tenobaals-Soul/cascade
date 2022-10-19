@@ -6,6 +6,8 @@
 
 typedef struct Exception Exception;
 
+void skip_whitespace(reader_t* reader);
+
 value_t* parse_number_value(reader_t* reader, Exception** excptr) {
     Exception* exc = NULL;
     struct number out_val = parse_number(reader, &exc);
@@ -73,14 +75,14 @@ void free_value(value_t* val) {
     case VALUE_TUPLE:
         if (((value_tuple_t*) val)->value == NULL) break;
         for (size_t i = 0; i < ((value_tuple_t*) val)->items; i++) {
-            free_value(&((value_tuple_t*) val)->value[i]);
+            free_value(((value_tuple_t*) val)->value[i]);
         }
         free(((value_tuple_t*) val)->value);
         break;
     case VALUE_SCALAR_INITIALIZER:
         if (((value_scalar_initializer_t*) val)->value == NULL) break;
         for (size_t i = 0; i < ((value_scalar_initializer_t*) val)->items; i++) {
-            free_value(&((value_scalar_initializer_t*) val)->value[i]);
+            free_value(((value_scalar_initializer_t*) val)->value[i]);
         }
         free(((value_scalar_initializer_t*) val)->value);
         break;
@@ -96,60 +98,71 @@ static void free_item_stack(stack_t stack) {
     destroy_stack(stack);
 }
 
-value_t* parse_scalar_initializer(reader_t* reader, Exception** excptr) {
+static value_t** parse_value_list(reader_t* reader, Exception** excptr, char start, char end, size_t* len) {
     reader_t r = *reader;
     Exception* exc = NULL;
-    if (!parse_specific_char(&r, &exc, '{')) {
-        update_exc(excptr, make_exception(exc, 0, "expected a \"{\" for a scalar initilizer"));
+    if (!parse_specific_char(&r, &exc, start)) {
+        update_exc(excptr, make_exception(exc, 0, r, "expected a \'%c\'", start));
         return NULL;
     }
     stack_t stack;
+    init_stack(stack);
+    value_t* val;
+    skip_whitespace(&r);
+    if (parse_specific_char(&r, &exc, end)) goto skipall;
+    if ((val = parse_value(&r, &exc))) {
+        push_ptr(stack, val);
+    }
+    else {
+        free_item_stack(stack);
+        update_exc(excptr, make_exception(exc, 1, r, "expected a value here"));
+        return NULL;
+    }
     for (;;) {
-        if (parse_specific_char(&r, &exc, '{')) break;
-        value_t* val;
-        if ((val = parse_value(&r, &exc))) push_ptr(stack, val);
+        skip_whitespace(&r);
+        if (parse_specific_char(&r, &exc, end)) break;
+        if (parse_specific_char(&r, &exc, ',')) {
+            skip_whitespace(&r);
+            if ((val = parse_value(&r, &exc))) {
+                push_ptr(stack, val);
+            }
+            else {
+                free_item_stack(stack);
+                update_exc(excptr, make_exception(exc, 1, r, "expected a value here"));
+                return NULL;
+            }
+        }
         else {
             free_item_stack(stack);
-            update_exc(excptr, make_exception(exc, 1, "expected a value or } here"));
+            update_exc(excptr, make_exception(exc, 1, r, "expected a , or %c here", end));
             return NULL;
         }
     }
-    value_scalar_initializer_t* out = calloc(1, sizeof(*out));
-    *out = (value_scalar_initializer_t) {
-        .type = VALUE_SCALAR_INITIALIZER,
-        .items = stack->bsize / sizeof(value_scalar_initializer_t*),
-        .value = stack_disown(stack)
-    };
-    *reader = r;
-    return (value_t*) out;
+skipall:
+    *len = stack->bsize / sizeof(value_t*);
+    return (value_t**) stack_disown(stack);
+}
+
+value_t* parse_scalar_initializer(reader_t* reader, Exception** excptr) {
+    size_t len;
+    value_t** values = parse_value_list(reader, excptr, '{', '}', &len);
+    if (values == NULL) return NULL;
+    value_scalar_initializer_t* sinit = malloc(sizeof(*sinit));
+    sinit->type = VALUE_SCALAR_INITIALIZER;
+    sinit->items = len;
+    sinit->value = values;
+    return (value_t*) sinit;
 }
 
 value_t* parse_tuple(reader_t* reader, Exception** excptr) {
-    reader_t r = *reader;
-    Exception* exc = NULL;
-    if (!parse_specific_char(&r, &exc, '{')) {
-        update_exc(excptr, make_exception(exc, 0, "expected a \"(\" for a tuple"));
-        return NULL;
-    }
-    stack_t stack;
-    for (;;) {
-        if (parse_specific_char(&r, &exc, '{')) break;
-        value_t* val;
-        if ((val = parse_value(&r, &exc))) push_ptr(stack, val);
-        else {
-            free_item_stack(stack);
-            update_exc(excptr, make_exception(exc, 1, "expected a value or ) here"));
-            return NULL;
-        }
-    }
-    value_tuple_t* out = calloc(1, sizeof(*out));
-    *out = (value_tuple_t) {
-        .type = VALUE_TUPLE,
-        .items = stack->bsize / sizeof(value_tuple_t*),
-        .value = stack_disown(stack)
-    };
-    *reader = r;
-    return (value_t*) out;
+    size_t len;
+    value_t** values = parse_value_list(reader, excptr, '(', ')', &len);
+    if (values == NULL) return NULL;
+    value_tuple_t* tuple = malloc(sizeof(*tuple));
+    tuple->type = VALUE_TUPLE;
+    tuple->items = len;
+    tuple->value = values;
+    return (value_t*) tuple;
 }
 
 value_t* parse_value(reader_t* reader, Exception** excptr) {
@@ -201,13 +214,19 @@ void skip_whitespace(reader_t* reader) {
             r.line++;
             break;
         case 0:
+            *reader = r;
+            return;
         default:
+            r.cur--;
+            *reader = r;
             return;
         }
     }
 }
 
+/*
 value_t* parse_expression(reader_t* reader, Exception* excptr) {
     stack_t vastack;
     stack_t opstack;
 }
+*/

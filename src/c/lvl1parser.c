@@ -1,4 +1,6 @@
+#define REQUIRE_LVL0_PARSER
 #include <lvl1parser.h>
+#undef REQUIRE_LVL0_PARSER
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -8,19 +10,38 @@
 #include <stack.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <memory.h>
 
 typedef struct Exception {
     char* val;
     struct Exception* caused_by;
     size_t parsed_symbols;
-    size_t text_pos;
+    char* text_pos;
 } Exception;
 
+static void print_single_exception(Exception* exc) {
+    char obuf[16];
+    size_t len;
+    for (len = 0; exc->text_pos[len] && exc->text_pos[len] != '\n' && len < 16; len++);
+    if (len > 15) {
+        memcpy(obuf, exc->text_pos, 12);
+        strcpy(obuf + 12, "...");
+    }
+    else {
+        memcpy(obuf, exc->text_pos, len);
+        obuf[len] = 0;
+    }
+    printf("%s. At: %s", exc->val, obuf);
+}
+
 void print_exception(Exception* exc) {
-    printf("%s\n", exc->val);
+    print_single_exception(exc);
+    printf("\n");
     while (exc->caused_by) {
         exc = exc->caused_by;
-        printf("    %s\n", exc->val);
+        printf("    ");
+        print_single_exception(exc);
+        printf("\n");
     }
 }
 
@@ -70,7 +91,7 @@ Exception* make_exception(Exception* caused_by, size_t parsed_symbols, reader_t 
     Exception* exc = malloc(sizeof(Exception));
     exc->caused_by = caused_by;
     exc->parsed_symbols = parsed_symbols;
-    exc->text_pos = r.cur;
+    exc->text_pos = r.text + r.cur;
     exc->val = buffer;
     return exc;
 }
@@ -92,7 +113,7 @@ char parse_specific_char(reader_t* reader, Exception** excptr, char expect) {
         return 0;
     }
     if (out != expect) {
-        exc = make_exception(NULL, 0, r, "excected '%c', not '%c'", expect, out);
+        exc = make_exception(NULL, 0, r, "expected '%c', not '%c'", expect, out);
         update_exc(excptr, exc);
         return 0;
     }
@@ -191,6 +212,7 @@ struct number parse_number(reader_t* reader, struct Exception** excptr) {
         return (struct number) {0};
     }
     update_exc(excptr, NULL);
+    reader->cur += errptr - startptr;
     return to_ret;
 }
 
@@ -255,7 +277,7 @@ bool parse_keyword(reader_t* reader, Exception** excptr, const char* expect) {
     for (size_t i = 0; expect[i]; i++) {
         Exception* exc = NULL;
         if (parse_specific_char(&r, &exc, expect[i]) == 0) {
-            update_exc(excptr, make_exception(exc, 0, r, "excected \"%s\"", expect));
+            update_exc(excptr, make_exception(exc, 0, r, "expected \"%s\"", expect));
             return false;
         }
     }
@@ -289,7 +311,7 @@ char* parse_string(reader_t* reader, Exception** excptr) {
     reader_t r = *reader;
     Exception* exc = NULL;
     if (parse_specific_char(&r, &exc, '\"') == 0) {
-        update_exc(excptr, make_exception(exc, 0, r, "excected a string"));
+        update_exc(excptr, make_exception(exc, 0, r, "expected a string"));
         return NULL;
     }
     stack_t stack;
