@@ -1,56 +1,95 @@
-CC=gcc
+LANG=DE
 
-CFLAGS=-O3 -Wall -Wextra
-OFLAGS=-O3 -Wall -Wextra
-TFLAGS=-Wall -Wextra
-LFLAGS=
+#
+# Directories
+#
+SRC_DIR = src/c
+INC_DIR = src/header
 
-EXEC=evlc
-BUILD_DIR=out
-SRC_DIR=src/c
-INC_DIRS=src/header
-TEST_DIR=tests
-TEST_CORE_DIR=test_core
+#
+# Compiler flags
+#
+CC     = gcc
+CFLAGS = -Wall -Wextra -Werror
 
-DEBUG_FLAGS = -DDEBUG -g
+#
+# Project files
+#
+SRCS=$(notdir $(shell find $(SRC_DIR) -name '*.c'))
+OBJS = $(SRCS:.c=.o)
+EXE  = cascadec
 
-all: remove_executables $(EXEC)
+#
+# Debug build settings
+#
+DBGDIR = debug
+DBGEXE = $(DBGDIR)/$(EXE)
+DBGOBJS = $(addprefix $(DBGDIR)/, $(OBJS))
+DBGCFLAGS = -g -O0 -DDEBUG
 
-remove_executables:
-	@rm -f $(EXEC)
+#
+# Release build settings
+#
+RELDIR = release
+RELEXE = $(RELDIR)/$(EXE)
+RELOBJS = $(addprefix $(RELDIR)/, $(OBJS))
+RELCFLAGS = -O3 -DNDEBUG
 
-set_debug: 
-	$(eval CFLAGS += $(DEBUG_FLAGS))
+#
+# Linker and macro Settings
+#
+DEFINES = LANG=$(LANG)
+LFLAGS = m readline
+METAFLAGS = $(addprefix -I, $(INC_DIR)) $(addprefix -D, $(DEFINES)) $(addprefix -l, $(LFLAGS))
 
-set_no_opt: 
-	$(eval CFLAGS = -O0 -Wall -Wextra -DDEBUG -g)
+.PHONY: all clean debug prep release remake
 
-debug: set_debug all
+# Default build
+all: prep release
 
-no_opt: set_no_opt all
+#
+# Debug rules
+#
+debug: $(DBGEXE)
 
-SRCS=$(shell find $(SRC_DIR) -name '*.c')
-OBJS=$(SRCS:$(SRC_DIR)/%=$(BUILD_DIR)/%.o)
+$(DBGEXE): $(DBGOBJS)
+	$(CC) $(CFLAGS) $(METAFLAGS) $(DBGCFLAGS) -o $(DBGEXE) $^
+	@mv $(DBGEXE) ./$(EXE)
 
-INC_FLAGS=$(addprefix -I,$(INC_DIRS))
+$(DBGDIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) -c $(CFLAGS) $(METAFLAGS) $(DBGCFLAGS) -o $@ $<
 
-$(EXEC): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LFLAGS)
+#
+# Release rules
+#
+release: $(RELEXE)
 
-$(BUILD_DIR)/%.c.o: $(SRC_DIR)/%.c
-	@mkdir -p $(BUILD_DIR)
-	$(CC) $(OFLAGS) $(DEBUG_FLAGS) $(INC_FLAGS) -c $< -o $@
+$(RELEXE): $(RELOBJS)
+	$(CC) $(CFLAGS) $(METAFLAGS) $(RELCFLAGS) -o $(RELEXE) $^
 
-$(TEST_CORE_DIR)/test_core.so: $(TEST_CORE_DIR)/test_core.c set_debug
-	$(CC) $(CFLAGS) -I$(TEST_CORE_DIR) -shared -fPIC $(TEST_CORE_DIR)/*.c -o $@
+$(RELDIR)/%.o: $(SRC_DIR)%.c
+	$(CC) -c $(CFLAGS) $(METAFLAGS) $(RELCFLAGS) -o $@ $<
+	@mv $(DBGEXE) ./$(EXE)
 
-$(TEST_DIR)/%.elf: $(TEST_DIR)/%.c $(OBJS) $(TEST_CORE_DIR)/test_core.c set_debug set_no_opt
-	$(CC) $(CFLAGS) $(INC_FLAGS) $(OBJS) $(TEST_CORE_DIR)/test_core.c -I$(TEST_CORE_DIR) $< -o $@
+#
+# Other rules
+#
+prep:
+	@mkdir -p $(DBGDIR) $(RELDIR)
+
+#
+# test rules
+#
+
+TEST_DIR = tests
+TEST_CORE_DIR = test_core
+
+$(TEST_DIR)/%.elf: $(TEST_DIR)/%.c $(DBGOBJS) $(TEST_CORE_DIR)/test_core.c
+	$(CC) $(CFLAGS) $(METAFLAGS) $(DBGOBJS) $(TEST_CORE_DIR)/test_core.c -I$(TEST_CORE_DIR) $< -o $@
 
 test:
 	@for file in $(TEST_DIR)/*.c ; do \
 		target="$${file%%.*}".elf ; \
-		echo $${target} ; \
 		make $${target} ; \
 		./$${target} ; \
 		rm -f /$${target} ; \
@@ -64,9 +103,7 @@ test-valgrind:
 		rm -f /$${target} ; \
 	done
 
-.PHONY: clean debug test test-valgrind
+remake: clean all
 
 clean:
-	rm -f -r $(BUILD_DIR)/*
-	rm -f $(EXEC)
-	rm -f tests/*.elf
+	rm -f $(RELEXE) $(RELOBJS) $(DBGEXE) $(DBGOBJS) $(TEST_DIR)/*.test

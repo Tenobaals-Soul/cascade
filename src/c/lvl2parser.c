@@ -3,6 +3,8 @@
 #undef REQUIRE_LVL0_PARSER
 #include <lvl2parser.h>
 #include <stack.h>
+#include <string.h>
+#include <limits.h>
 
 typedef struct Exception Exception;
 
@@ -64,6 +66,7 @@ value_t* parse_string_value(reader_t* reader, Exception** excptr) {
 }
 
 void free_value(value_t* val) {
+    if (val == NULL) return;
     switch (*val) {
     case VALUE_CHAR:
     case VALUE_FLOATING:
@@ -86,11 +89,16 @@ void free_value(value_t* val) {
         }
         free(((value_scalar_initializer_t*) val)->value);
         break;
+    case VALUE_OPERATION:
+        free_value(((value_operation_t*) val)->left);
+        free_value(((value_operation_t*) val)->right);
+        free(((value_operation_t*) val)->operator_name);
+        break;
     }
     free(val);
 }
 
-static void free_item_stack(stack_t stack) {
+static void free_value_stack(stack_t stack) {
     value_t* val;
     while ((val = pop_ptr(stack))) {
         free_value(val);
@@ -98,7 +106,7 @@ static void free_item_stack(stack_t stack) {
     destroy_stack(stack);
 }
 
-static value_t** parse_value_list(reader_t* reader, Exception** excptr, char start, char end, size_t* len) {
+static value_t** parse_expression_list(reader_t* reader, Exception** excptr, char start, char end, size_t* len) {
     reader_t r = *reader;
     Exception* exc = NULL;
     if (!parse_specific_char(&r, &exc, start)) {
@@ -110,11 +118,11 @@ static value_t** parse_value_list(reader_t* reader, Exception** excptr, char sta
     value_t* val;
     skip_whitespace(&r);
     if (parse_specific_char(&r, &exc, end)) goto skipall;
-    if ((val = parse_value(&r, &exc))) {
+    if ((val = parse_expression(&r, &exc))) {
         push_ptr(stack, val);
     }
     else {
-        free_item_stack(stack);
+        free_value_stack(stack);
         update_exc(excptr, make_exception(exc, 1, r, "expected a value here"));
         return NULL;
     }
@@ -123,17 +131,17 @@ static value_t** parse_value_list(reader_t* reader, Exception** excptr, char sta
         if (parse_specific_char(&r, &exc, end)) break;
         if (parse_specific_char(&r, &exc, ',')) {
             skip_whitespace(&r);
-            if ((val = parse_value(&r, &exc))) {
+            if ((val = parse_expression(&r, &exc))) {
                 push_ptr(stack, val);
             }
             else {
-                free_item_stack(stack);
+                free_value_stack(stack);
                 update_exc(excptr, make_exception(exc, 1, r, "expected a value here"));
                 return NULL;
             }
         }
         else {
-            free_item_stack(stack);
+            free_value_stack(stack);
             update_exc(excptr, make_exception(exc, 1, r, "expected a , or %c here", end));
             return NULL;
         }
@@ -145,7 +153,7 @@ skipall:
 
 value_t* parse_scalar_initializer(reader_t* reader, Exception** excptr) {
     size_t len;
-    value_t** values = parse_value_list(reader, excptr, '{', '}', &len);
+    value_t** values = parse_expression_list(reader, excptr, '{', '}', &len);
     if (values == NULL) return NULL;
     value_scalar_initializer_t* sinit = malloc(sizeof(*sinit));
     sinit->type = VALUE_SCALAR_INITIALIZER;
@@ -156,7 +164,7 @@ value_t* parse_scalar_initializer(reader_t* reader, Exception** excptr) {
 
 value_t* parse_tuple(reader_t* reader, Exception** excptr) {
     size_t len;
-    value_t** values = parse_value_list(reader, excptr, '(', ')', &len);
+    value_t** values = parse_expression_list(reader, excptr, '(', ')', &len);
     if (values == NULL) return NULL;
     value_tuple_t* tuple = malloc(sizeof(*tuple));
     tuple->type = VALUE_TUPLE;
@@ -224,9 +232,117 @@ void skip_whitespace(reader_t* reader) {
     }
 }
 
-/*
-value_t* parse_expression(reader_t* reader, Exception* excptr) {
+enum mode {
+    SEARCH_VALUE, SEARCH_OPERATOR
+};
+
+struct expression_parsing_locals {
+    reader_t r;
+    Exception* exc;
     stack_t vastack;
     stack_t opstack;
+    enum mode mode;
+    size_t values_parsed;
+};
+
+bool parse_expression_value(struct expression_parsing_locals* l) {
+    value_t* val = parse_value(&l->r, &l->exc);
+    if (val) {
+        push_ptr(l->vastack, val);
+        l->values_parsed++;
+    }
+    else {
+        free_value_stack(l->vastack);
+        while (peek_ptr(l->opstack)) {
+            free(pop_ptr(l->opstack));
+        }
+        l->exc = make_exception(l->exc, l->values_parsed, l->r,
+            "could not parse expression because a %s was expected",
+            l->mode == SEARCH_VALUE ? "value" : "operator");
+        return false;
+    }
+    l->mode = SEARCH_OPERATOR;
+    return true;
 }
-*/
+
+int priority(const char* op) {
+    if (op == NULL) return INT_MIN;
+    if (strcmp(op, "&&") == 0) return 0;
+    if (strcmp(op, "||") == 0) return 0;
+
+    if (strcmp(op, "==") == 0) return 0;
+    if (strcmp(op, "!=") == 0) return 0;
+
+    if (strcmp(op, "<=") == 0) return 1;
+    if (strcmp(op, ">=") == 0) return 1;
+    if (strcmp(op, "<") == 0) return 2;
+    if (strcmp(op, ">") == 0) return 2;
+
+    if (strcmp(op, "+") == 0) return 3;
+    if (strcmp(op, "-") == 0) return 3;
+
+
+    if (strcmp(op, "*") == 0) return 4;
+    if (strcmp(op, "/") == 0) return 4;
+
+    if (strcmp(op, "|") == 0) return 5;
+
+    if (strcmp(op, "&") == 0) return 6;
+
+    if (strcmp(op, "<<") == 0) return 7;
+    if (strcmp(op, ">>") == 0) return 7;
+    else return INT_MAX;
+}
+
+void pushback(stack_t vastack, stack_t opstack, char* op) {
+    while (peek_ptr(opstack) && priority(op) <= priority((((value_operation_t*) peek_ptr(opstack))->operator_name))) {
+        value_operation_t* opw = pop_ptr(opstack);
+        opw->right = pop_ptr(vastack);
+        opw->left = pop_ptr(vastack);
+        push_ptr(vastack, opw);
+    }
+}
+
+bool parse_expression_operator(struct expression_parsing_locals* l) {
+    char* op = parse_operator(&l->r, &l->exc);
+    if (op != NULL) {
+        value_operation_t* opwrapper = malloc(sizeof(value_operation_t));
+        opwrapper->type = VALUE_OPERATION;
+        opwrapper->operator_name = op;
+        pushback(l->vastack, l->opstack, op);
+        push_ptr(l->opstack, opwrapper);
+        l->values_parsed++;
+        l->mode = SEARCH_VALUE;
+        return true;
+    }
+    return false;
+}
+
+value_t* parse_expression(reader_t* reader, Exception** excptr) {
+    struct expression_parsing_locals l;
+    l.r = *reader;
+    l.exc = NULL;
+    init_stack(l.vastack);
+    init_stack(l.opstack);
+    l.mode = SEARCH_VALUE;
+    l.values_parsed = 0;
+    for (;;) {
+        skip_whitespace(&l.r);
+        if (l.mode == SEARCH_VALUE) {
+            if (!parse_expression_value(&l)) {
+                update_exc(excptr, l.exc);
+                return NULL;
+            }
+        }
+        else {
+            if (!parse_expression_operator(&l)) {
+                pushback(l.vastack, l.opstack, NULL);
+                value_t* val = pop_ptr(l.vastack);
+                destroy_stack(l.vastack);
+                destroy_stack(l.opstack);
+                *reader = l.r;
+                return val;
+            }
+        }
+    }
+}

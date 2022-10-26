@@ -2,10 +2,29 @@
 #include <stdio.h>
 #include <test_core.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 static unsigned int assert_counter = 0, pass_counter = 0;
 
-void start() {}
+void start() {
+    pid_t pid = getpid();
+    if (fork() < 0) {
+        fprintf(stderr, "failed to fork\n");
+        exit(1);
+    }
+    if (pid != getpid()) return; // inside new subprocess
+    int status;
+    wait(&status);
+    if (WIFSIGNALED(status)) {
+        int sig = WSTOPSIG(status);
+        printf("tests failed with signal %d (%s)\n", sig, strsignal(sig));
+    }
+    else if (!WIFEXITED(status)) {
+        printf("tests ended in an unexpected way\n");
+    }
+    exit(0);
+}
 
 void end() {
     if (assert_counter > pass_counter) {

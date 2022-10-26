@@ -63,7 +63,7 @@ void update_exc(Exception** dest, Exception* val) {
         }
         free_exception(val);
     }
-    else free_exception(val);
+    else if (val) free_exception(val);
 }
 
 void free_exception(Exception* exc) {
@@ -243,9 +243,21 @@ char* parse_identifier(reader_t* reader, Exception** excptr) {
 char parse_operator_char(reader_t* reader, Exception** excptr) {
     char c;
     update_exc(excptr, NULL);
-    if ((c = parse_alpha(reader, NULL))) return c;
-    if ((c = parse_punct(reader, NULL))) return c;
-    if ((c = parse_specific_char(reader, NULL, '_'))) return c;
+    if ((c = parse_specific_char(reader, NULL, ',')) ||
+        (c = parse_specific_char(reader, NULL, ';')) ||
+        (c = parse_specific_char(reader, NULL, '(')) ||
+        (c = parse_specific_char(reader, NULL, ')')) ||
+        (c = parse_specific_char(reader, NULL, '{')) ||
+        (c = parse_specific_char(reader, NULL, '}')) ||
+        (c = parse_specific_char(reader, NULL, '[')) ||
+        (c = parse_specific_char(reader, NULL, ']'))) {
+        reader->cur--;
+    }
+    else {
+        if ((c = parse_alpha(reader, NULL))) return c;
+        if ((c = parse_punct(reader, NULL))) return c;
+        if ((c = parse_specific_char(reader, NULL, '_'))) return c;
+    }
     update_exc(excptr, make_exception(NULL, 0, *reader, "'%c' is not a valid character for an operator", c));
     return 0;
 }

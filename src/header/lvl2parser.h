@@ -9,7 +9,8 @@ typedef enum value_type {
     VALUE_STRING,
     VALUE_CHAR,
     VALUE_SCALAR_INITIALIZER,
-    VALUE_TUPLE
+    VALUE_TUPLE,
+    VALUE_OPERATION
 } value_t;
 
 typedef struct value_integer_s {
@@ -44,8 +45,17 @@ typedef struct value_tuple_s {
     size_t items;
 } value_tuple_t;
 
+typedef struct value_operation_s {
+    value_t type;
+    char* operator_name;
+    value_t* left;
+    value_t* right;
+} value_operation_t;
+
 value_t* parse_scalar_initializer(reader_t* reader, struct Exception** excptr);
 value_t* parse_tuple(reader_t* reader, struct Exception** excptr);
 value_t* parse_value(reader_t* reader, struct Exception** excptr);
+
+value_t* parse_expression(reader_t* reader, struct Exception** excptr);
 
 #endif

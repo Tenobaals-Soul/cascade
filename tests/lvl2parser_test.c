@@ -14,8 +14,7 @@ reader_t* mr(char* t) {
     return r;
 }
 
-int main() {
-    start();
+void test_value_parsing() {
     struct Exception* exc = NULL;
     value_char_t* vc = (void*) parse_value(mr("'a'e"), &exc);
     if (vc == NULL) { print_exception(exc); exc = NULL; }
@@ -55,5 +54,35 @@ int main() {
         assert_equal((int) *vv->value[0], VALUE_STRING);
         assert_equal((int) *vv->value[1], VALUE_INTEGER);
     }
+}
+
+void test_expression_parsing() {
+    struct Exception* exc;
+    value_operation_t* val;
+    val = (void*) parse_expression(mr("5 + 7"), &exc);
+    if (val == NULL) { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_equal((int) val->type, VALUE_OPERATION);
+    }
+    
+    val = (void*) parse_expression(mr("5 + 7 * 5"), &exc);
+    if (val == NULL) { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_equal((int) val->type, VALUE_OPERATION);
+        assert_str_equal(val->operator_name, "+");
+    }
+
+    val = (void*) parse_expression(mr("(5 + 7) * 5"), &exc);
+    if (val == NULL) { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_equal((int) val->type, VALUE_OPERATION);
+        assert_str_equal(val->operator_name, "*");
+    }
+}
+
+int main() {
+    start();
+    test_value_parsing();
+    test_expression_parsing();
     end();
 }
