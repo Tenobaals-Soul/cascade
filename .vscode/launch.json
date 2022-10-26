@@ -20,6 +20,9 @@
                     "description": "Automatische Strukturierung und Einrückung für \"gdb\" aktivieren",
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
+                },
+                {
+                    "text": "set follow-fork-mode child"
                 }
             ],
             "preLaunchTask": "build with make",

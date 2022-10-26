@@ -1,5 +1,3 @@
-LANG=DE
-
 #
 # Directories
 #
@@ -38,8 +36,7 @@ RELCFLAGS = -O3 -DNDEBUG
 #
 # Linker and macro Settings
 #
-DEFINES = LANG=$(LANG)
-LFLAGS = m readline
+LFLAGS = 
 METAFLAGS = $(addprefix -I, $(INC_DIR)) $(addprefix -D, $(DEFINES)) $(addprefix -l, $(LFLAGS))
 
 .PHONY: all clean debug prep release remake
@@ -85,7 +82,7 @@ TEST_DIR = tests
 TEST_CORE_DIR = test_core
 
 $(TEST_DIR)/%.elf: $(TEST_DIR)/%.c $(DBGOBJS) $(TEST_CORE_DIR)/test_core.c
-	$(CC) $(CFLAGS) $(METAFLAGS) $(DBGOBJS) $(TEST_CORE_DIR)/test_core.c -I$(TEST_CORE_DIR) $< -o $@
+	$(CC) $(CFLAGS) $(METAFLAGS) $(DBGCFLAGS) $(DBGOBJS) $(TEST_CORE_DIR)/test_core.c -I$(TEST_CORE_DIR) $< -o $@
 
 test:
 	@for file in $(TEST_DIR)/*.c ; do \

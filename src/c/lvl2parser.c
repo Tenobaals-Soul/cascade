@@ -148,6 +148,7 @@ static value_t** parse_expression_list(reader_t* reader, Exception** excptr, cha
     }
 skipall:
     *len = stack->bsize / sizeof(value_t*);
+    *reader = r;
     return (value_t**) stack_disown(stack);
 }
 
