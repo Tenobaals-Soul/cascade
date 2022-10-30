@@ -94,6 +94,8 @@ void free_value(value_t* val) {
         free_value(((value_operation_t*) val)->right);
         free(((value_operation_t*) val)->operator_name);
         break;
+    case VALUE_VARIABLE:
+        free(((value_variable_t*) val)->name);
     }
     free(val);
 }
@@ -154,9 +156,14 @@ skipall:
 
 value_t* parse_scalar_initializer(reader_t* reader, Exception** excptr) {
     size_t len;
-    value_t** values = parse_expression_list(reader, excptr, '{', '}', &len);
-    if (values == NULL) return NULL;
+    reader_t r = *reader;
+    char* name = parse_name(&r, NULL);
+    value_t** values = parse_expression_list(&r, excptr, '{', '}', &len);
+    if (values == NULL) {
+        return NULL;
+    }
     value_scalar_initializer_t* sinit = malloc(sizeof(*sinit));
+    sinit->name = name;
     sinit->type = VALUE_SCALAR_INITIALIZER;
     sinit->items = len;
     sinit->value = values;
@@ -172,6 +179,15 @@ value_t* parse_tuple(reader_t* reader, Exception** excptr) {
     tuple->items = len;
     tuple->value = values;
     return (value_t*) tuple;
+}
+
+value_t* parse_name_value(reader_t* reader, Exception** excptr) {
+    name_t name = parse_name(reader, excptr);
+    if (name == NULL) return NULL;
+    value_variable_t* val = malloc(sizeof(*val));
+    val->type = VALUE_VARIABLE;
+    val->name = name;
+    return (value_t*) val;
 }
 
 value_t* parse_value(reader_t* reader, Exception** excptr) {
@@ -197,6 +213,12 @@ value_t* parse_value(reader_t* reader, Exception** excptr) {
     else update_exc(&temp_exc, exc);
     exc = NULL;
     if ((out = parse_scalar_initializer(reader, &exc))) {
+        if (temp_exc) free_exception(temp_exc);
+        return out;
+    }
+    else update_exc(&temp_exc, exc);
+    exc = NULL;
+    if ((out = parse_name_value(reader, &exc))) {
         if (temp_exc) free_exception(temp_exc);
         return out;
     }
@@ -317,6 +339,55 @@ bool parse_expression_operator(struct expression_parsing_locals* l) {
         return true;
     }
     return false;
+}
+
+name_t parse_name(reader_t* reader, struct Exception** excptr) {
+    reader_t r = *reader;
+    Exception* exc = NULL;
+    char* segment = parse_identifier(&r, &exc);
+    if (segment == NULL) {
+        update_exc(excptr, make_exception(exc, 0, r, "a name has to start with an identifier"));
+        return NULL;
+    }
+    stack_t name;
+    init_stack(name);
+    push_str(name, segment);
+    for (;;) {
+        if (parse_specific_char(&r, NULL, '.') == 0) break;
+        segment = parse_identifier(&r, &exc);
+        if (segment == NULL) {
+            update_exc(excptr, make_exception(exc, 1, r, "expected a identifier"));
+            destroy_stack(name);
+            return NULL;
+        }
+        push_str(name, segment);
+    }
+    *reader = r;
+    return stack_disown(name);
+}
+
+#ifdef __GNUC__
+__attribute__((__const__))
+#endif
+int name_len(name_t name) {
+    size_t len;
+    for (len = 0; name[len] && name[len + 1]; len++);
+    return len;
+}
+
+void name_inner_len(name_t name, int out[name_len(name)]) {
+    int cur = 0;
+    for (size_t i = 0; name[i] && name[i + 1]; i++) {
+        size_t s = i;
+        for (; name[i]; i++);
+        out[cur] = i - s;
+    }
+}
+
+char* name_next(name_t* name) {
+    char* current = *name;
+    for (; (*name)[0]; (*name)++);
+    return current;
 }
 
 value_t* parse_expression(reader_t* reader, Exception** excptr) {

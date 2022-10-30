@@ -17,6 +17,7 @@ void push_int(stack_t stack, int val);
 void push_lng(stack_t stack, long val);
 void push_llg(stack_t stack, long long val);
 void push_ptr(stack_t stack, void* ptr);
+void push_str(stack_t stack, char* str);
 
 char peek_chr(stack_t stack);
 short peek_sht(stack_t stack);

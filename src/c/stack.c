@@ -30,6 +30,13 @@ void push_lng(stack_t stack, long val) implement_push(long)
 void push_llg(stack_t stack, long long val) implement_push(long long)
 void push_ptr(stack_t stack, void* val) implement_push(void*)
 
+void push_str(stack_t stack, char* str) {
+    for (size_t i = 0; str[i]; i++) {
+        push_chr(stack, str[i]);
+    }
+    push_chr(stack, 0);
+}
+
 #define implement_peek(type) {\
     if (stack->bsize < sizeof(type)) return (type) 0;\
     return ((type*) stack->bdata)[ceil_div(stack->bsize, sizeof(type)) - 1];\

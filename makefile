@@ -87,7 +87,7 @@ $(TEST_DIR)/%.elf: $(TEST_DIR)/%.c $(DBGOBJS) $(TEST_CORE_DIR)/test_core.c
 test:
 	@for file in $(TEST_DIR)/*.c ; do \
 		target="$${file%%.*}".elf ; \
-		make $${target} ; \
+		make $${target} && \
 		./$${target} ; \
 		rm -f /$${target} ; \
 	done
@@ -95,7 +95,7 @@ test:
 test-valgrind:
 	@for file in $(TEST_DIR)/*.c ; do \
 		target="$${file%%.*}".elf ; \
-		make $${target} ; \
+		make $${target} && \
 		valgrind ./$${target} ; \
 		rm -f /$${target} ; \
 	done

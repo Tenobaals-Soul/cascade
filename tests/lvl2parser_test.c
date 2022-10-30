@@ -54,6 +54,21 @@ void test_value_parsing() {
         assert_equal((int) *vv->value[0], VALUE_STRING);
         assert_equal((int) *vv->value[1], VALUE_INTEGER);
     }
+    value_variable_t* vn = (void*) parse_value(mr("Tree.EMPTY"), &exc);
+    if (vn == NULL) { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_equal((int) vn->type, VALUE_VARIABLE);
+        assert_true(memcmp(vn->name, "Tree\0EMPTY\0", sizeof("Tree\0EMPTY\0")) == 0);
+    }
+    vv = (void*) parse_value(mr("Tree.NODE{NONE, 0, NONE}"), &exc);
+    if (vv == NULL) { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_equal((int) vv->type, VALUE_SCALAR_INITIALIZER);
+        assert_equal((int) vv->items, 3);
+        assert_equal((int) *vv->value[0], VALUE_VARIABLE);
+        assert_equal((int) *vv->value[1], VALUE_INTEGER);
+        assert_equal((int) *vv->value[2], VALUE_VARIABLE);
+    }
 }
 
 void test_expression_parsing() {
