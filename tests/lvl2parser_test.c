@@ -95,6 +95,17 @@ void test_expression_parsing() {
     }
 }
 
+void test_structure_parsing() {
+    type_t* type = parse_type(mr("string"), NULL);
+    assert_str_equal(type->name, "string");
+    assert_equal((int) type->generic_len, 0);
+    type = parse_type(mr("Dictionary<string, string>"), NULL);
+    assert_str_equal(type->name, "Dictionary");
+    assert_equal((int) type->generic_len, 2);
+    assert_str_equal(type->generic_val[0]->name, "string");
+    assert_str_equal(type->generic_val[1]->name, "string");
+}
+
 int main() {
     start();
     test_value_parsing();

@@ -61,6 +61,12 @@ typedef struct value_variable_s {
     name_t name;
 } value_variable_t;
 
+typedef struct type_s {
+    char* name;
+    size_t generic_len;
+    struct type_s** generic_val;
+} type_t;
+
 value_t* parse_scalar_initializer(reader_t* reader, struct Exception** excptr);
 value_t* parse_tuple(reader_t* reader, struct Exception** excptr);
 value_t* parse_value(reader_t* reader, struct Exception** excptr);
@@ -84,5 +90,7 @@ void name_inner_len(name_t name, int out[name_len(name)]);
 char* name_next(name_t* name);
 
 value_t* parse_expression(reader_t* reader, struct Exception** excptr);
+
+type_t* parse_type(reader_t* reader, struct Exception** excptr);
 
 #endif

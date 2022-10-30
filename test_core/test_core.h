@@ -7,7 +7,7 @@
 void start();
 
 char* _makehexstr(void* data, size_t memb);
-void _assert(bool condition, size_t line, const char* file, char* f1, char* f3, ...);
+void _assert(bool condition, size_t line, const char* file, const char* function, char* f1, char* f3, ...);
 
 #define EVAL_TYPE_FORMATER(exp) (_Generic((exp), \
         char: "%d", \
@@ -29,7 +29,7 @@ void _assert(bool condition, size_t line, const char* file, char* f1, char* f3, 
 #define assert_equal(x, y) do {\
     typeof(x) evalx = x;\
     typeof(y) evaly = y;\
-    _assert(evalx == evaly, __LINE__, __FILE__,\
+    _assert(evalx == evaly, __LINE__, __FILE__, __func__,\
         (EVAL_TYPE_FORMATER(evalx)), EVAL_TYPE_FORMATER(evaly), evalx, evaly\
     );\
 } while (0)
@@ -38,14 +38,14 @@ void _assert(bool condition, size_t line, const char* file, char* f1, char* f3, 
 #define assert_str_equal(x, y) do {\
     char* evalx = x;\
     char* evaly = y;\
-    _assert(evalx == evaly || (evalx && evaly && strcmp(evalx, evaly) == 0), __LINE__, __FILE__,\
+    _assert(evalx == evaly || (evalx && evaly && strcmp(evalx, evaly) == 0), __LINE__, __FILE__, __func__,\
         "%s%s%s", "%s%s%s", FORMAT_STRING(evalx), FORMAT_STRING(evaly)\
     );\
 } while (0)
 
 #define assert_true(x) do {\
     typeof(x) evalx = x;\
-    _assert(evalx, __LINE__, __FILE__,\
+    _assert(evalx, __LINE__, __FILE__, __func__,\
         EVAL_TYPE_FORMATER(evalx), "true", evalx\
     );\
 } while (0)

@@ -5,6 +5,7 @@
 #include <stack.h>
 #include <string.h>
 #include <limits.h>
+#include <list.h>
 
 typedef struct Exception Exception;
 
@@ -417,4 +418,52 @@ value_t* parse_expression(reader_t* reader, Exception** excptr) {
             }
         }
     }
+}
+
+void free_type(type_t* type) {
+    if (type->generic_val) {
+        for (size_t i = 0; i < type->generic_len; i++) {
+            free_type(type->generic_val[i]);
+        }
+        free(type->generic_val);
+    }
+    free(type);
+}
+
+type_t* parse_type(reader_t* reader, Exception** excptr) {
+    reader_t r = *reader;
+    Exception* exc;
+    char* name = parse_identifier(&r, &exc);
+    if (name == NULL) {
+        update_exc(excptr, make_exception(exc, 0, r, "expected a type name"));
+        return NULL;
+    }
+    type_t* out = malloc(sizeof(type_t));
+    out->name = name;
+    out->generic_len = 0;
+    list_t generics;
+    list_init(generics, sizeof(type_t*));
+    for (;;) {
+        if (parse_specific_char(&r, NULL, '<') == 0) {
+            out->generic_len = generics->wsize;
+            out->generic_val = list_disown(generics);
+            return out;
+        }
+        type_t* inner = parse_type(&r, &exc);
+        for (;;) {
+            if (inner == NULL) {
+                update_exc(excptr, make_exception(exc, 2, r, "expected a type after <"));
+                goto cleanup;
+            }
+            append_ptr(generics, inner);
+            if (parse_specific_char(&r, NULL, ',') != 0) break;
+            inner = parse_type(&r, &exc);
+        }
+        if (parse_specific_char(&r, NULL, '>') == 0) break;
+    }
+    cleanup:
+    out->generic_val = list_disown(generics);
+    free_type(out);
+    free_type(out);
+    return NULL;
 }

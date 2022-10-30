@@ -30,7 +30,7 @@ int main() {
     assert_equal(parse_character(mr("'a'"), NULL), 'a');
     assert_equal(parse_character(mr("a'"), NULL), 0);
     assert_str_equal(parse_identifier(mr("hello world"), NULL), "hello");
-    assert_str_equal(parse_operator(mr("<swap> 2"), NULL), "<swap>");
+    assert_str_equal(parse_operator(mr("<-> 2"), NULL), "<->");
     assert_str_equal(parse_operator(mr("2times 2"), NULL), NULL);
     assert_str_equal(parse_string(mr("\"hello world\""), NULL), "hello world");
     assert_str_equal(parse_string(mr("hello world"), NULL), NULL);

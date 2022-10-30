@@ -35,14 +35,14 @@ void end() {
     }
 }
 
-void _assert(bool condition, size_t line, const char* file, char* f1, char* f3, ...) {
+void _assert(bool condition, size_t line, const char* file, const char* function, char* f1, char* f3, ...) {
     assert_counter++;
     if (condition) {
         printf("\033[92massert %4u passed at %s:%lu\033[0m\n", assert_counter, file, (unsigned long) line);
         pass_counter++;
     }
     else {
-        printf("\033[91massert %4u failed at %s:%lu\033[0m\n", assert_counter, file, (unsigned long) line);
+        printf("\033[91massert %4u failed at %s:%lu in function \"%s()\"\033[0m\n", assert_counter, file, (unsigned long) line, function);
         char* f2 = " != ";
         char* format = malloc(strlen(f1) + strlen(f2) + strlen(f3) + 1);
         strcpy(format, f1);

@@ -240,23 +240,25 @@ char* parse_identifier(reader_t* reader, Exception** excptr) {
     return stack_disown(stack);
 }
 
+static bool no_operator_chars[256] = {
+    [','] = true,
+    [';'] = true,
+    ['('] = true,
+    [')'] = true,
+    ['{'] = true,
+    ['}'] = true,
+    ['['] = true,
+    [']'] = true,
+    ['_'] = true
+};
+
+#define is_no_operator(x) (no_operator_chars[(unsigned char) x])
+
 char parse_operator_char(reader_t* reader, Exception** excptr) {
     char c;
-    update_exc(excptr, NULL);
-    if ((c = parse_specific_char(reader, NULL, ',')) ||
-        (c = parse_specific_char(reader, NULL, ';')) ||
-        (c = parse_specific_char(reader, NULL, '(')) ||
-        (c = parse_specific_char(reader, NULL, ')')) ||
-        (c = parse_specific_char(reader, NULL, '{')) ||
-        (c = parse_specific_char(reader, NULL, '}')) ||
-        (c = parse_specific_char(reader, NULL, '[')) ||
-        (c = parse_specific_char(reader, NULL, ']'))) {
-        reader->cur--;
-    }
-    else {
-        if ((c = parse_alpha(reader, NULL))) return c;
-        if ((c = parse_punct(reader, NULL))) return c;
-        if ((c = parse_specific_char(reader, NULL, '_'))) return c;
+    if (!is_no_operator(reader->text[reader->cur]) && 
+        (c = parse_punct(reader, NULL))) {
+        return c;
     }
     update_exc(excptr, make_exception(NULL, 0, *reader, "'%c' is not a valid character for an operator", c));
     return 0;
