@@ -112,6 +112,7 @@ static void free_value_stack(stack_t stack) {
 static value_t** parse_expression_list(reader_t* reader, Exception** excptr, char start, char end, size_t* len) {
     reader_t r = *reader;
     Exception* exc = NULL;
+    skip_whitespace(&r);
     if (!parse_specific_char(&r, &exc, start)) {
         update_exc(excptr, make_exception(exc, 0, r, "expected a \'%c\'", start));
         return NULL;
@@ -132,6 +133,7 @@ static value_t** parse_expression_list(reader_t* reader, Exception** excptr, cha
     for (;;) {
         skip_whitespace(&r);
         if (parse_specific_char(&r, &exc, end)) break;
+        skip_whitespace(&r);
         if (parse_specific_char(&r, &exc, ',')) {
             skip_whitespace(&r);
             if ((val = parse_expression(&r, &exc))) {
@@ -345,6 +347,7 @@ bool parse_expression_operator(struct expression_parsing_locals* l) {
 name_t parse_name(reader_t* reader, struct Exception** excptr) {
     reader_t r = *reader;
     Exception* exc = NULL;
+    skip_whitespace(&r);
     char* segment = parse_identifier(&r, &exc);
     if (segment == NULL) {
         update_exc(excptr, make_exception(exc, 0, r, "a name has to start with an identifier"));
@@ -354,7 +357,9 @@ name_t parse_name(reader_t* reader, struct Exception** excptr) {
     init_stack(name);
     push_str(name, segment);
     for (;;) {
+        skip_whitespace(&r);
         if (parse_specific_char(&r, NULL, '.') == 0) break;
+        skip_whitespace(&r);
         segment = parse_identifier(&r, &exc);
         if (segment == NULL) {
             update_exc(excptr, make_exception(exc, 1, r, "expected a identifier"));
@@ -432,7 +437,8 @@ void free_type(type_t* type) {
 
 type_t* parse_type(reader_t* reader, Exception** excptr) {
     reader_t r = *reader;
-    Exception* exc;
+    Exception* exc = NULL;
+    skip_whitespace(&r);
     char* name = parse_identifier(&r, &exc);
     if (name == NULL) {
         update_exc(excptr, make_exception(exc, 0, r, "expected a type name"));
@@ -443,27 +449,33 @@ type_t* parse_type(reader_t* reader, Exception** excptr) {
     out->generic_len = 0;
     list_t generics;
     list_init(generics, sizeof(type_t*));
-    for (;;) {
-        if (parse_specific_char(&r, NULL, '<') == 0) {
-            out->generic_len = generics->wsize;
-            out->generic_val = list_disown(generics);
-            return out;
-        }
+    skip_whitespace(&r);
+    if (parse_specific_char(&r, NULL, '<')) {
         type_t* inner = parse_type(&r, &exc);
         for (;;) {
             if (inner == NULL) {
-                update_exc(excptr, make_exception(exc, 2, r, "expected a type after <"));
+                update_exc(excptr, make_exception(exc, 1, r, "expected a type"));
                 goto cleanup;
             }
             append_ptr(generics, inner);
-            if (parse_specific_char(&r, NULL, ',') != 0) break;
+            skip_whitespace(&r);
+            if (parse_specific_char(&r, NULL, ',') == 0) break;
             inner = parse_type(&r, &exc);
         }
-        if (parse_specific_char(&r, NULL, '>') == 0) break;
+        skip_whitespace(&r);
+        if (parse_specific_char(&r, NULL, '>') == 0) {
+            update_exc(excptr, make_exception(exc, 1, r, "expected >"));
+            goto cleanup;
+        }
     }
-    cleanup:
+    out->generic_len = generics->wsize;
     out->generic_val = list_disown(generics);
-    free_type(out);
+    *reader = r;
+    return out;
+
+    cleanup:
+    out->generic_len = generics->wsize;
+    out->generic_val = list_disown(generics);
     free_type(out);
     return NULL;
 }

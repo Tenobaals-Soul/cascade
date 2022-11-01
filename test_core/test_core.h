@@ -3,11 +3,25 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 void start();
 
 char* _makehexstr(void* data, size_t memb);
 void _assert(bool condition, size_t line, const char* file, const char* function, char* f1, char* f3, ...);
+int _test_wait();
+
+#define STR(x) #x
+
+#define launch(code) do { \
+    pid_t pid = fork(); \
+    if (pid == 0) {code;} \
+    else { \
+        if (_test_wait()) _assert(1 == 0, __LINE__, __FILE__, "???\", \"trying to launch: \""STR(code)"\" with macro: launch", \
+            "%s", "%s", "launch()", "successful"); \
+        exit(0); \
+     } \
+} while(0)
 
 #define EVAL_TYPE_FORMATER(exp) (_Generic((exp), \
         char: "%d", \
@@ -56,7 +70,7 @@ void _assert(bool condition, size_t line, const char* file, const char* function
     char* hex_str1 = _makehexstr(x, memb);\
     char* hex_str2 = _makehexstr(y, memb);\
     bool condition = evalx == evaly || (evalx && evaly && memcmp(evalx, evaly, memb) == 0);\
-    _assert(condition, __LINE__, __FILE__,\
+    _assert(condition, __LINE__, __FILE__, __func__,\
         "%s", "%s", hex_str1, hex_str2\
     );\
     free(hex_str1);\

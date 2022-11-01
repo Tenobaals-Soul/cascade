@@ -32,6 +32,7 @@ char parse_punct(reader_t* reader, struct Exception** excptr);
 char parse_digit(reader_t* reader, struct Exception** excptr);
 void update_exc(struct Exception** dest, struct Exception* val);
 void free_exception(struct Exception* exc);
+void skip_whitespace(reader_t* reader);
 #ifdef __GNUC__
 __attribute__((__format__(__printf__, 4, 5)))
 #endif

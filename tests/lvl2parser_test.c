@@ -60,7 +60,7 @@ void test_value_parsing() {
         assert_equal((int) vn->type, VALUE_VARIABLE);
         assert_true(memcmp(vn->name, "Tree\0EMPTY\0", sizeof("Tree\0EMPTY\0")) == 0);
     }
-    vv = (void*) parse_value(mr("Tree.NODE{NONE, 0, NONE}"), &exc);
+    vv = (void*) parse_value(mr("Tree . NODE { NONE , 0 , NONE }"), &exc);
     if (vv == NULL) { print_exception(exc); exc = NULL; assert_true(false); }
     else {
         assert_equal((int) vv->type, VALUE_SCALAR_INITIALIZER);
@@ -96,19 +96,27 @@ void test_expression_parsing() {
 }
 
 void test_structure_parsing() {
-    type_t* type = parse_type(mr("string"), NULL);
-    assert_str_equal(type->name, "string");
-    assert_equal((int) type->generic_len, 0);
-    type = parse_type(mr("Dictionary<string, string>"), NULL);
-    assert_str_equal(type->name, "Dictionary");
-    assert_equal((int) type->generic_len, 2);
-    assert_str_equal(type->generic_val[0]->name, "string");
-    assert_str_equal(type->generic_val[1]->name, "string");
+    struct Exception* exc = NULL;
+    type_t* type = parse_type(mr("string"), &exc);
+    if (type == NULL) { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_str_equal(type->name, "string");
+        assert_equal((int) type->generic_len, 0);
+    }
+    type = parse_type(mr(" Dictionary < string , string >"), &exc);
+    if (type == NULL) { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_str_equal(type->name, "Dictionary");
+        assert_equal((int) type->generic_len, 2);
+        assert_str_equal(type->generic_val[0]->name, "string");
+        assert_str_equal(type->generic_val[1]->name, "string");
+    }
 }
 
 int main() {
     start();
-    test_value_parsing();
-    test_expression_parsing();
+    launch(test_value_parsing());
+    launch(test_expression_parsing());
+    launch(test_structure_parsing());
     end();
 }
