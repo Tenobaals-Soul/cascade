@@ -2,7 +2,7 @@
 #define INCLUDE_LIST_H
 #include <stdlib.h>
 
-typedef struct list {
+typedef struct list_t {
     void* bdata;
     size_t wsize;
     size_t wcapacity;

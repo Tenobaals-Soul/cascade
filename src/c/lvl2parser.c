@@ -9,6 +9,8 @@
 
 typedef struct Exception Exception;
 
+const empty_statement_t empty_statement_guard = { EMPTY_STATEMENT };
+
 void skip_whitespace(reader_t* reader);
 
 value_t* parse_number_value(reader_t* reader, Exception** excptr) {
@@ -194,44 +196,20 @@ value_t* parse_name_value(reader_t* reader, Exception** excptr) {
 }
 
 value_t* parse_value(reader_t* reader, Exception** excptr) {
+    value_t* (*parse_func[])(reader_t*, Exception**) = {
+        parse_character_value, parse_number_value, parse_string_value,
+        parse_scalar_initializer, parse_name_value, parse_tuple
+    };
     Exception* temp_exc = NULL;
-    Exception* exc = NULL;
     value_t* out;
-    if ((out = parse_character_value(reader, &exc))) {
-        if (temp_exc) free_exception(temp_exc);
-        return out;
+    for (size_t i = 0; i < sizeof(parse_func) / sizeof(parse_func[0]); i++) {
+        Exception* exc = NULL;
+        if ((out = parse_func[i](reader, &exc))) {
+            if (temp_exc) free_exception(temp_exc);
+            return out;
+        }
+        else update_exc(&temp_exc, exc);
     }
-    else update_exc(&temp_exc, exc);
-    exc = NULL;
-    if ((out = parse_number_value(reader, &exc))) {
-        if (temp_exc) free_exception(temp_exc);
-        return out;
-    }
-    else update_exc(&temp_exc, exc);
-    exc = NULL;
-    if ((out = parse_string_value(reader, &exc))) {
-        if (temp_exc) free_exception(temp_exc);
-        return out;
-    }
-    else update_exc(&temp_exc, exc);
-    exc = NULL;
-    if ((out = parse_scalar_initializer(reader, &exc))) {
-        if (temp_exc) free_exception(temp_exc);
-        return out;
-    }
-    else update_exc(&temp_exc, exc);
-    exc = NULL;
-    if ((out = parse_name_value(reader, &exc))) {
-        if (temp_exc) free_exception(temp_exc);
-        return out;
-    }
-    else update_exc(&temp_exc, exc);
-    exc = NULL;
-    if ((out = parse_tuple(reader, &exc))) {
-        if (temp_exc) free_exception(temp_exc);
-        return out;
-    }
-    else update_exc(&temp_exc, exc);
     if(excptr) *excptr = temp_exc;
     else free_exception(temp_exc);
     return NULL;
@@ -477,5 +455,25 @@ type_t* parse_type(reader_t* reader, Exception** excptr) {
     out->generic_len = generics->wsize;
     out->generic_val = list_disown(generics);
     free_type(out);
+    return NULL;
+}
+
+statement_t* parse_statement(reader_t* reader, Exception** excptr) {
+    statement_t* (*parse_func[])(reader_t*, Exception**) = {
+        parse_empty_statement, parse_assign_statement, parse_block,
+        parse_return, parse_if, parse_for, parse_while, parse_do_while
+    };
+    Exception* temp_exc = NULL;
+    value_t* out;
+    for (size_t i = 0; i < sizeof(parse_func) / sizeof(parse_func[0]); i++) {
+        Exception* exc = NULL;
+        if ((out = parse_number_value(reader, &exc))) {
+            if (temp_exc) free_exception(temp_exc);
+            return out;
+        }
+        else update_exc(&temp_exc, exc);
+    }
+    if(excptr) *excptr = temp_exc;
+    else free_exception(temp_exc);
     return NULL;
 }

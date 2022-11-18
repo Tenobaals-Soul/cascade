@@ -93,6 +93,8 @@ void test_expression_parsing() {
         assert_equal((int) val->type, VALUE_OPERATION);
         assert_str_equal(val->operator_name, "*");
     }
+    val = (void*) parse_expression(mr("(5 + 5"), NULL);
+    assert_equal(val, NULL);
 }
 
 void test_structure_parsing() {
@@ -113,10 +115,52 @@ void test_structure_parsing() {
     }
 }
 
+void test_statement_parsing() {
+    struct Exception* exc;
+    empty_statement_t* stm0 = (void*) parse_statement(mr(";"), &exc);
+    if (stm0 == NULL)  { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_equal((int) stm0->type, EMPTY_STATEMENT);
+    }
+    assign_statement_t* stm1 = (void*) parse_statement(mr("a = 5;"), &exc);
+    if (stm1 == NULL)  { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_equal((int) stm1->type, ASSIGN_STATEMENT);
+        assert_equal(stm1->dest, "a");
+    }
+    stm1 = (void*) parse_statement(mr("dictionary<string, string> a = dictionary.EMPTY;"), &exc);
+    if (stm1 == NULL)  { print_exception(exc); exc = NULL; assert_true(false); }
+    else {
+        assert_equal((int) stm1->type, ASSIGN_STATEMENT);
+        assert_equal(stm1->dest, "a");
+    }
+
+    block_statement_t* stm3 = (void*) parse_statement(mr("{a = b; b = a;}"), &exc);
+    if (stm3 == NULL)  { print_exception(exc); exc = NULL; assert_true(false); }
+    else assert_equal((int) stm3->type, BLOCK_STATEMENT);
+
+    return_statement_t* stm4 = (void*) parse_statement(mr("return a + b;"), &exc);
+    if (stm4 == NULL)  { print_exception(exc); exc = NULL; assert_true(false); }
+    else assert_equal((int) stm4->type, RETURN_STATEMENT);
+
+    if_statement_t* stm5 = (void*) parse_statement(mr("if a < b {}"), &exc);
+    if (stm5 == NULL)  { print_exception(exc); exc = NULL; assert_true(false); }
+    else assert_equal((int) stm5->type, IF_STATEMENT);
+
+    for_statement_t* stm6 = (void*) parse_statement(mr("for int a = 0; a < 5; a++ {}"), &exc);
+    if (stm6 == NULL)  { print_exception(exc); exc = NULL; assert_true(false); }
+    else assert_equal((int) stm6->type, FOR_STATEMENT);
+
+    for_statement_t* stm7 = (void*) parse_statement(mr("while a < 5 {}"), &exc);
+    if (stm7 == NULL)  { print_exception(exc); exc = NULL; assert_true(false); }
+    else assert_equal((int) stm7->type, WHILE_STATEMENT);
+}
+
 int main() {
     start();
     launch(test_value_parsing());
     launch(test_expression_parsing());
     launch(test_structure_parsing());
+    launch(test_statement_parsing());
     end();
 }

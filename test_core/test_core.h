@@ -14,6 +14,7 @@ int _test_wait();
 #define STR(x) #x
 
 #define launch(code) do { \
+    printf("start section %s\n", STR(code)); \
     pid_t pid = fork(); \
     if (pid == 0) {code;} \
     else { \
