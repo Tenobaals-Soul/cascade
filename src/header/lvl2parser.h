@@ -113,6 +113,7 @@ extern const empty_statement_t empty_statement_guard;
 
 typedef struct assign_statement_t {
     statement_t type;
+    type_t* rntype;
     name_t dest;
     value_t* val;
 } assign_statement_t;
@@ -130,9 +131,9 @@ typedef struct return_statement_t {
 
 typedef struct if_statement_t {
     statement_t type;
-    value_t* val;
-    statement_t* nstm;
-    statement_t* estm;
+    value_t* cond;
+    statement_t* tstm;
+    statement_t* fstm;
 } if_statement_t;
 
 typedef struct for_statement_t {

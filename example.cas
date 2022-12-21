@@ -6,4 +6,7 @@ endpoint[] endpoints = {
     {"/login", login, GET|POST}
 };
 
-start_listening(endpoints, ipaddr("127.0.0.1"), 5000);
+void main(string[] argv) {
+    if (equal(argv[1], "run"))
+        start_listening(endpoints, ipaddr("127.0.0.1"), 5000);
+}

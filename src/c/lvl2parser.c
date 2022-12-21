@@ -7,6 +7,8 @@
 #include <limits.h>
 #include <list.h>
 
+#define ARRLEN(arr) (sizeof(arr) / sizeof(arr[0]))
+
 typedef struct Exception Exception;
 
 const empty_statement_t empty_statement_guard = { EMPTY_STATEMENT };
@@ -299,7 +301,8 @@ int priority(const char* op) {
 }
 
 void pushback(stack_t vastack, stack_t opstack, char* op) {
-    while (peek_ptr(opstack) && priority(op) <= priority((((value_operation_t*) peek_ptr(opstack))->operator_name))) {
+    while (peek_ptr(opstack) && priority(op) <=
+    priority((((value_operation_t*) peek_ptr(opstack))->operator_name))) {
         value_operation_t* opw = pop_ptr(opstack);
         opw->right = pop_ptr(vastack);
         opw->left = pop_ptr(vastack);
@@ -328,7 +331,8 @@ name_t parse_name(reader_t* reader, struct Exception** excptr) {
     skip_whitespace(&r);
     char* segment = parse_identifier(&r, &exc);
     if (segment == NULL) {
-        update_exc(excptr, make_exception(exc, 0, r, "a name has to start with an identifier"));
+        update_exc(excptr, make_exception(exc, 0, r,
+            "a name has to start with an identifier"));
         return NULL;
     }
     stack_t name;
@@ -340,7 +344,8 @@ name_t parse_name(reader_t* reader, struct Exception** excptr) {
         skip_whitespace(&r);
         segment = parse_identifier(&r, &exc);
         if (segment == NULL) {
-            update_exc(excptr, make_exception(exc, 1, r, "expected a identifier"));
+            update_exc(excptr, make_exception(exc, 1, r,
+                "expected a identifier"));
             destroy_stack(name);
             return NULL;
         }
@@ -432,7 +437,8 @@ type_t* parse_type(reader_t* reader, Exception** excptr) {
         type_t* inner = parse_type(&r, &exc);
         for (;;) {
             if (inner == NULL) {
-                update_exc(excptr, make_exception(exc, 1, r, "expected a type"));
+                update_exc(excptr,make_exception(exc, 1, r,
+                    "expected a type"));
                 goto cleanup;
             }
             append_ptr(generics, inner);
@@ -458,16 +464,204 @@ type_t* parse_type(reader_t* reader, Exception** excptr) {
     return NULL;
 }
 
+statement_t* parse_empty_statement(reader_t* reader, Exception** excptr) {
+    reader_t r = *reader;
+    Exception* exc = NULL;
+    skip_whitespace(&r);
+    if (parse_specific_char(&r, &exc, ';')) {
+        *reader = r;
+        return &empty_statement_guard;
+    }
+    update_exc(excptr, make_exception(exc, 0, r,
+        "empty statement must be only \";\""));
+    return NULL;
+}
+
+bool try_parse_typed_assign(reader_t* reader, type_t** type, name_t* name) {
+    reader_t r = *reader;
+    *type = parse_type(&r, NULL);
+    if (*type == NULL)
+        return false;
+    *name = parse_name(&r, NULL);
+    if (*name == NULL) {
+        free_type(type);
+        return false;
+    }
+    *reader = r;
+    return true;
+}
+
+bool try_parse_untyped_assign(reader_t* reader, name_t* name) {
+    reader_t r = *reader;
+    *name = parse_name(&r, NULL);
+    if (*name == NULL)
+        return false;
+    *reader = r;
+    return true;
+}
+
+statement_t* parse_assign_statement(reader_t* reader, Exception** excptr) {
+    reader_t r = *reader;
+    Exception* exc = NULL;
+    skip_whitespace(&r);
+    type_t* type = parse_type(&r, NULL);
+    name_t name = parse_name(&r, NULL);
+    assign_statement_t stm;
+    stm.type = ASSIGN_STATEMENT;
+    if (try_parse_typed_assign(&r, &type, &name)) {
+        stm.rntype = type;
+    }
+    else if (try_parse_untyped_assign(&r, &name)) {
+        stm.rntype = NULL;
+    }
+    else {
+        update_exc(excptr, make_exception(NULL, 0, r,
+            "expected a destination"));
+        return NULL;
+    }
+    skip_whitespace(&r);
+    if (!parse_specific_char(&r, &exc, '=')) {
+        free_type(type);
+        free(name);
+        update_exc(excptr, make_exception(exc, 1, r, "excpected a \"=\""));
+        return NULL;
+    }
+    skip_whitespace(&r);
+    stm.dest = name;
+    stm.val = parse_value(&r, &exc);
+    if (stm.val == NULL) {
+        free_type(type);
+        free(name);
+        update_exc(excptr, make_exception(exc, 1, r, "excpected a expression"));
+        return NULL;
+    }
+    *reader = r;
+    assign_statement_t* out = malloc(sizeof(assign_statement_t));
+    *out = stm;
+    return (statement_t*) out;
+}
+
+statement_t* parse_block(reader_t* reader, Exception** excptr) {
+    reader_t r = *reader;
+    Exception* exc = NULL;
+    list_t stmlist;
+    skip_whitespace(&r);
+    if (!parse_specific_char(&r, &exc, '{')) {
+        update_exc(excptr, make_exception(exc, 0, r,
+            "exprected \"{\" at the front of a block"));
+        return NULL;
+    }
+    statement_t* stm;
+    while ((stm = parse_statement(&r, NULL))) {
+        append_ptr(stmlist, stm);
+    }
+    skip_whitespace(&r);
+    if (!parse_specific_char(&r, &exc, '}')) {
+        update_exc(excptr, make_exception(exc, 0, r,
+            "exprected \"}\" at the end of a block"));
+        for (size_t i = 0; i < stmlist->wsize; i++) {
+            stm = get_ptr(stmlist, i);
+            free_statement(stm);
+        }
+        list_destroy(stmlist);
+        return NULL;
+    }
+    block_statement_t* block = malloc(sizeof(block_statement_t));
+    block->type = BLOCK_STATEMENT;
+    block->count = stmlist->wsize;
+    block->statements = stack_disown(stmlist);
+    *reader = r;
+    return (statement_t*) block;
+}
+
+statement_t* parse_return(reader_t* reader, Exception** excptr) {
+    reader_t r = *reader;
+    Exception* exc = NULL;
+    skip_whitespace(&r);
+    if (!parse_keyword(&r, &exc, "return")) {
+        update_exc(excptr, make_exception(exc, 0, r, "expected \"return\""));
+        return NULL;
+    }
+    skip_whitespace(&r);
+    value_t* val = parse_value(&r, &exc);
+    if (val == NULL) {
+        update_exc(excptr, make_exception(exc, 1, r,
+            "could not parse an expression"));
+        return NULL;
+    }
+    skip_whitespace(&r);
+    if (!parse_specific_char(&r, &exc, ';')) {
+        free_value(val);
+        update_exc(excptr, make_exception(exc, 1, r, "expected a \";\""));
+        return NULL;
+    }
+    return_statement_t* stm = malloc(sizeof(return_statement_t));
+    stm->type = RETURN_STATEMENT;
+    stm->val = val;
+    *reader = r;
+    return (statement_t*) val;
+}
+
+statement_t* parse_if(reader_t* reader, Exception** excptr) {
+    reader_t r = *reader;
+    Exception* exc = NULL;
+    skip_whitespace(&r);
+    if (!parse_keyword(&r, &exc, "return")) {
+        update_exc(excptr, make_exception(exc, 0, r, "expected \"if\""));
+        return NULL;
+    }
+    skip_whitespace(&r);
+    if (!parse_keyword(&r, &exc, "(")) {
+        update_exc(excptr, make_exception(exc, 1, r, "expected \"(\""));
+        return NULL;
+    }
+    value_t* condition = parse_value(&r, &exc);
+    if (condition == NULL) {
+        update_exc(excptr, make_exception(exc, 2, r,
+            "could not parse an expression"));
+        return NULL;
+    }
+    if (!parse_keyword(&r, &exc, ")")) {
+        free(condition);
+        update_exc(excptr, make_exception(exc, 3, r, "expected \")\""));
+        return NULL;
+    }
+    statement_t* iftrue = parse_statement(&r, &exc);
+    if (iftrue == NULL) {
+        free_value(condition);
+        update_exc(excptr, make_exception(exc, 2, r,
+            "could not parse a statement"));
+        return NULL;
+    }
+    statement_t* iffalse = NULL;
+    if (parse_keyword(&r, &exc, "else")) {
+        iffalse = parse_statement(&r, &exc);
+        if (iffalse == NULL) {
+            free_value(condition);
+            free_statement(iftrue);
+            update_exc(excptr, make_exception(exc, 1, r,
+                "could not parse a statement"));
+            return NULL;
+        }
+    }
+    if_statement_t* out = malloc(sizeof(if_statement_t));
+    out->type = IF_STATEMENT;
+    out->cond = condition;
+    out->tstm = iftrue;
+    out->fstm = iffalse;
+    return out;
+}
+
 statement_t* parse_statement(reader_t* reader, Exception** excptr) {
     statement_t* (*parse_func[])(reader_t*, Exception**) = {
         parse_empty_statement, parse_assign_statement, parse_block,
         parse_return, parse_if, parse_for, parse_while, parse_do_while
     };
     Exception* temp_exc = NULL;
-    value_t* out;
-    for (size_t i = 0; i < sizeof(parse_func) / sizeof(parse_func[0]); i++) {
+    statement_t* out;
+    for (size_t i = 0; i < ARRLEN(parse_func); i++) {
         Exception* exc = NULL;
-        if ((out = parse_number_value(reader, &exc))) {
+        if ((out = parse_func[i](reader, &exc))) {
             if (temp_exc) free_exception(temp_exc);
             return out;
         }
